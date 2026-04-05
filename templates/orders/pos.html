@@ -1,0 +1,519 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}💳 Касса (POS) — AutoParts CRM{% endblock %}
+{% block navbar_title %}Касса (РМК){% endblock %}
+
+{% block extra_css %}
+<style>
+    .pos-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+        height: calc(100vh - 120px);
+    }
+    .pos-main {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .pos-search-box {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        box-shadow: 0 4px 6px var(--shadow-color);
+        display: flex;
+        gap: 12px;
+    }
+    .pos-search-input {
+        flex: 1;
+        font-size: 24px;
+        padding: 16px 24px;
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-color);
+        color: var(--text-color);
+        transition: border-color 0.2s;
+    }
+    .pos-search-input:focus {
+        border-color: var(--accent-from);
+        outline: none;
+    }
+    .pos-cart {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 4px 6px var(--shadow-color);
+    }
+    .pos-cart-table {
+        flex: 1;
+        overflow-y: auto;
+    }
+    .pos-sidebar {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        box-shadow: 0 4px 6px var(--shadow-color);
+    }
+    .pos-total-display {
+        font-size: 42px;
+        font-weight: 800;
+        text-align: center;
+        color: var(--accent-to);
+        background: var(--bg-color);
+        padding: 24px 12px;
+        border-radius: var(--radius-md);
+        border: 2px dashed var(--accent-from);
+    }
+    .pos-btn {
+        padding: 20px;
+        font-size: 20px;
+        font-weight: bold;
+        border-radius: var(--radius-md);
+        text-align: center;
+        cursor: pointer;
+        border: none;
+        transition: transform 0.1s, opacity 0.2s;
+    }
+    .pos-btn:active {
+        transform: scale(0.98);
+    }
+    .pos-btn-pay {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        height: 100px;
+    }
+    .pos-btn-mixed {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+    }
+    .pos-hotkeys {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-align: center;
+        margin-top: auto;
+    }
+    
+    /* Payment Modal Styles */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+        z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+    }
+    .modal-content {
+        background: var(--card-bg); border-radius: var(--radius-lg);
+        padding: 30px; width: 100%; max-width: 500px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+    }
+    .amount-input {
+        font-size: 32px; padding: 12px; font-weight: bold; text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pos-layout">
+    <div class="pos-main">
+        <!-- Search Bar -->
+        <div class="pos-search-box">
+            <input type="text" id="pos-search" class="pos-search-input" placeholder="Сканируйте штрихкод или введите OEM/название [Enter]" autocomplete="off" autofocus>
+            <button class="btn btn-secondary" onclick="searchProduct()" style="padding: 0 24px; font-size: 18px;">🔍 Найти</button>
+        </div>
+        <div id="search-results-container" class="search-results-dropdown" style="display: none; position: relative; margin-top: -12px; border-radius: 0 0 8px 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);"></div>
+
+        <!-- Cart Table -->
+        <div class="pos-cart">
+            <div class="pos-cart-table">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Наименование</th>
+                            <th>Цена</th>
+                            <th style="width: 120px;">Количество</th>
+                            <th>Сумма</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-body">
+                        <!-- Items will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- POS Sidebar -->
+    <div class="pos-sidebar">
+        <div>
+            <label class="form-label">Клиент (по умолчанию Розничный)</label>
+            <select id="pos-client" class="form-input" style="font-size: 16px; padding: 12px;">
+                <option value="">— Розничный покупатель —</option>
+                {% for client in clients %}
+                <option value="{{ client.pk }}">{{ client.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div>
+            <label class="form-label">К оплате</label>
+            <div class="pos-total-display" id="total-display">
+                0 {{ user.currency_symbol }}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <button class="pos-btn pos-btn-pay" onclick="openPaymentModal('cash')" style="grid-column: span 2;">
+                💵 НАЛИЧНЫЕ<br><span style="font-size: 14px; font-weight: normal;">[F8]</span>
+            </button>
+            <button class="pos-btn pos-btn-mixed" onclick="openPaymentModal('card')">
+                💳 КАРТА<br><span style="font-size: 14px; font-weight: normal;">[F9]</span>
+            </button>
+            <button class="pos-btn" style="background: var(--bg-hover); color: var(--text-color);" onclick="openPaymentModal('mixed')">
+                СМЕШАННАЯ<br><span style="font-size: 14px; font-weight: normal;">[F10]</span>
+            </button>
+        </div>
+
+        <button class="btn btn-danger" style="padding: 16px; font-weight: bold; margin-top: auto;" onclick="clearCart()">
+            ОЧИСТИТЬ ЧЕК [Esc]
+        </button>
+        <p class="pos-hotkeys">Поддерживается ввод со сканера штрихкодов.</p>
+    </div>
+</div>
+
+<!-- Audio for scanner -->
+<audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2216/2216-preview.mp3" preload="auto"></audio>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payment-modal">
+    <div class="modal-content">
+        <h2 id="payment-title" style="margin-top:0; text-align:center;">Оплата</h2>
+        
+        <div style="margin: 20px 0;">
+            <div style="display:flex; justify-content:space-between; font-size:18px; margin-bottom:12px;">
+                <span class="text-muted">Сумма чека:</span>
+                <strong id="modal-total" class="text-accent">0 {{ user.currency_symbol }}</strong>
+            </div>
+            
+            <!-- Exact payment field depending on type -->
+            <div id="cash-payment-section">
+                <label class="form-label">Получено наличных</label>
+                <input type="number" id="cash-given" class="form-input amount-input" value="0" step="1" oninput="calcChange()">
+            </div>
+            
+            <div id="card-payment-section" style="display:none; margin-top:16px;">
+                <label class="form-label">Оплата картой</label>
+                <input type="number" id="card-given" class="form-input amount-input" value="0" step="1" oninput="calcChange()">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size:24px; margin-top:20px; padding-top:20px; border-top:2px dashed var(--border-color);">
+                <span class="text-muted">Сдача:</span>
+                <strong id="modal-change" style="color: #10b981;">0 {{ user.currency_symbol }}</strong>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 30px;">
+            <button class="pos-btn pos-btn-pay" style="height: 60px; flex:2;" onclick="submitOrder()">✔️ ПРОБИТЬ ЧЕК [Enter]</button>
+            <button class="pos-btn" style="background:var(--bg-hover); color:var(--text-color); height: 60px; flex:1;" onclick="closePaymentModal()">ОТМЕНА</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form explicitly for submission -->
+<form id="pos-form" method="POST" action="{% url 'pos_view' %}" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="cart_json" id="hidden-cart">
+    <input type="hidden" name="client_id" id="hidden-client">
+    <input type="hidden" name="payment_method" id="hidden-method">
+    <input type="hidden" name="paid_cash" id="hidden-cash">
+    <input type="hidden" name="paid_card" id="hidden-card">
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let cart = [];
+    let currentPaymentMethod = 'cash';
+    let searchTimeout = null;
+    const currency = '{{ user.currency_symbol }}';
+
+    const searchInput = document.getElementById('pos-search');
+    const resultsContainer = document.getElementById('search-results-container');
+    
+    // Auto-focus logic for scanner
+    document.addEventListener('keydown', (e) => {
+        // If not typing in an input, focus search
+        if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'TEXTAREA') {
+            if(e.key.length === 1 && !e.ctrlKey) {
+                searchInput.focus();
+            }
+        }
+        
+        if(e.key === 'F1') { e.preventDefault(); searchInput.focus(); }
+        if(e.key === 'F8') { e.preventDefault(); openPaymentModal('cash'); }
+        if(e.key === 'F9') { e.preventDefault(); openPaymentModal('card'); }
+        if(e.key === 'F10') { e.preventDefault(); openPaymentModal('mixed'); }
+        if(e.key === 'Escape') {
+            if(modal.style.display === 'flex') closePaymentModal();
+            else clearCart();
+        }
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            searchProduct(true); // Exact Match mode for barcode scanner
+        }
+    });
+
+    searchInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        clearTimeout(searchTimeout);
+        if(val.length > 2) {
+            searchTimeout = setTimeout(() => searchProduct(false), 300);
+        } else {
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    function searchProduct(isExact = false) {
+        const q = searchInput.value.trim();
+        if(!q) return;
+
+        fetch(`/orders/api/products/?q=${encodeURIComponent(q)}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.results.length === 0) {
+                    if(isExact) alert('Товар не найден');
+                    resultsContainer.style.display = 'none';
+                    return;
+                }
+                
+                // If barcode scan and exact match found, add immediately
+                if(isExact && data.results.length === 1) {
+                    addToCart(data.results[0]);
+                    searchInput.value = '';
+                    resultsContainer.style.display = 'none';
+                } else if(isExact && data.results.length > 1) {
+                    // Check if one has exact barcode
+                    const exact = data.results.find(p => p.barcode === q || p.oem_number === q);
+                    if(exact) {
+                        addToCart(exact);
+                        searchInput.value = '';
+                        resultsContainer.style.display = 'none';
+                        return;
+                    }
+                    showResultsDropdown(data.results);
+                } else {
+                    showResultsDropdown(data.results);
+                }
+            });
+    }
+
+    function showResultsDropdown(results) {
+        resultsContainer.innerHTML = results.map(p => `
+            <div class="search-result-item" onclick='addToCartObj(${JSON.stringify(p).replace(/'/g, "&apos;")})'>
+                <div class="search-result-main">
+                    <span class="text-accent fw-bold">${p.oem_number}</span>
+                    <span>${p.name} <small class="text-muted">${p.barcode ? '[Штрихкод: '+p.barcode+']' : ''}</small></span>
+                </div>
+                <div class="search-result-meta">
+                    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                        <span class="fw-bold">${parseFloat(p.price_default).toLocaleString()} ${currency}</span>
+                        <small class="text-muted">Розница</small>
+                    </div>
+                    <span class="badge ${p.stock_quantity > 0 ? 'badge-processing' : 'badge-cancelled'}">Остаток: ${p.stock_quantity}</span>
+                </div>
+            </div>
+        `).join('');
+        resultsContainer.style.display = 'block';
+    }
+
+    window.addToCartObj = function(obj) {
+        addToCart(obj);
+        searchInput.value = '';
+        resultsContainer.style.display = 'none';
+        searchInput.focus();
+    };
+
+    function addToCart(product) {
+        const existing = cart.find(i => i.id === product.id);
+        if(existing) {
+            if(existing.qty < product.stock_quantity) existing.qty++;
+            else alert('Недостаточно остатка: ' + product.stock_quantity);
+        } else {
+            cart.push({
+                id: product.id,
+                name: product.name,
+                oem: product.oem_number,
+                price: parseFloat(product.price_default),
+                qty: 1,
+                max_qty: product.stock_quantity,
+                prices: product.prices // Store all available prices
+            });
+        }
+        
+        // Play beep sound
+        const beep = document.getElementById('beep-sound');
+        if(beep) {
+            beep.currentTime = 0;
+            beep.play().catch(e => console.log('Audio error:', e));
+        }
+
+        renderCart();
+    }
+
+    function renderCart() {
+        const tbody = document.getElementById('cart-body');
+        let html = '';
+        let total = 0;
+
+        cart.forEach((item, idx) => {
+            const sum = item.price * item.qty;
+            total += sum;
+            html += `
+                <tr>
+                    <td class="text-muted">${idx+1}</td>
+                    <td class="fw-bold">${item.name} <br><small class="text-muted">${item.oem}</small></td>
+                    <td>
+                        <select onchange="updateItemPrice(${idx}, this.value)" style="background:transparent; border:none; color:var(--text-color); font-weight:bold; cursor:pointer;">
+                            <option value="${item.price}" selected>${item.price.toLocaleString()}</option>
+                            ${Object.values(item.prices || {}).map(lp => `
+                                <option value="${lp.price}">${lp.price} (${lp.name})</option>
+                            `).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <button class="btn btn-secondary btn-sm" onclick="changeQty(${idx}, -1)" style="padding:2px 8px;">-</button>
+                            <input type="number" class="form-input" style="width:60px; text-align:center; padding:4px;" value="${item.qty}" onchange="setQty(${idx}, this.value)">
+                            <button class="btn btn-secondary btn-sm" onclick="changeQty(${idx}, 1)" style="padding:2px 8px;">+</button>
+                        </div>
+                    </td>
+                    <td class="text-accent fw-bold">${sum.toLocaleString()} ${currency}</td>
+                    <td><button class="btn btn-secondary" onclick="removeItem(${idx})" style="color:var(--danger-color); font-weight:bold;">✕</button></td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        document.getElementById('total-display').textContent = total.toLocaleString() + ' ' + currency;
+    }
+
+    window.updateItemPrice = function(idx, newPrice) {
+        cart[idx].price = parseFloat(newPrice);
+        renderCart();
+    };
+
+    window.changeQty = function(idx, delta) {
+        const item = cart[idx];
+        const newQty = item.qty + delta;
+        if(newQty > 0 && newQty <= item.max_qty) {
+            item.qty = newQty;
+            renderCart();
+        }
+    };
+
+    window.setQty = function(idx, val) {
+        const qty = parseInt(val) || 1;
+        const item = cart[idx];
+        item.qty = Math.min(Math.max(1, qty), item.max_qty);
+        renderCart();
+    };
+
+    window.removeItem = function(idx) {
+        cart.splice(idx, 1);
+        renderCart();
+    };
+
+    window.clearCart = function() {
+        if(cart.length > 0 && confirm('Очистить весь чек?')) {
+            cart = [];
+            renderCart();
+        }
+        searchInput.focus();
+    };
+
+    // Modal Logic
+    const modal = document.getElementById('payment-modal');
+    window.openPaymentModal = function(method) {
+        if(cart.length === 0) {
+            alert('Чек пуст');
+            return;
+        }
+        currentPaymentMethod = method;
+        const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        
+        document.getElementById('modal-total').textContent = total.toLocaleString() + ' ' + currency;
+        document.getElementById('cash-given').value = method === 'card' ? 0 : total;
+        document.getElementById('card-given').value = method === 'card' ? total : 0;
+        
+        document.getElementById('cash-payment-section').style.display = (method === 'cash' || method === 'mixed') ? 'block' : 'none';
+        document.getElementById('card-payment-section').style.display = (method === 'card' || method === 'mixed') ? 'block' : 'none';
+        
+        const titles = {
+            'cash': '💵 Оплата наличными',
+            'card': '💳 Оплата картой',
+            'mixed': '🔄 Смешанная оплата'
+        };
+        document.getElementById('payment-title').textContent = titles[method];
+        
+        modal.style.display = 'flex';
+        calcChange();
+        
+        setTimeout(() => {
+            if(method === 'mixed' || method === 'cash') document.getElementById('cash-given').select();
+        }, 100);
+    };
+
+    window.closePaymentModal = function() {
+        modal.style.display = 'none';
+        searchInput.focus();
+    };
+
+    window.calcChange = function() {
+        const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const cash = parseFloat(document.getElementById('cash-given').value) || 0;
+        const card = parseFloat(document.getElementById('card-given').value) || 0;
+        
+        const change = (cash + card) - total;
+        const el = document.getElementById('modal-change');
+        if(change >= 0) {
+            el.textContent = change.toLocaleString() + ' ' + currency;
+            el.style.color = '#10b981';
+        } else {
+            el.textContent = 'Долг: ' + Math.abs(change).toLocaleString() + ' ' + currency;
+            el.style.color = '#ef4444';
+        }
+    };
+
+    window.submitOrder = function() {
+        if(cart.length === 0) return;
+        
+        const cash = parseFloat(document.getElementById('cash-given').value) || 0;
+        const card = parseFloat(document.getElementById('card-given').value) || 0;
+        const client = document.getElementById('pos-client').value;
+
+        // Fill hidden form
+        document.getElementById('hidden-cart').value = JSON.stringify(cart);
+        document.getElementById('hidden-client').value = client;
+        document.getElementById('hidden-method').value = currentPaymentMethod;
+        document.getElementById('hidden-cash').value = cash;
+        document.getElementById('hidden-card').value = card;
+        
+        document.getElementById('pos-form').submit();
+    };
+
+    modal.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            submitOrder();
+        }
+    });
+</script>
+{% endblock %}

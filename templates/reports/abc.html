@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}ABC-анализ — AutoParts CRM{% endblock %}
+{% block navbar_title %}ABC-анализ товаров{% endblock %}
+
+{% block navbar_actions %}
+<div style="display:flex;gap:8px;align-items:center;">
+    <form method="get" style="display:flex;gap:8px;">
+        <select name="period" class="form-input" style="width:160px;" onchange="this.form.submit()">
+            <option value="30" {% if period == '30' %}selected{% endif %}>За 30 дней</option>
+            <option value="90" {% if period == '90' %}selected{% endif %}>За 90 дней</option>
+            <option value="180" {% if period == '180' %}selected{% endif %}>За 180 дней</option>
+            <option value="365" {% if period == '365' %}selected{% endif %}>За год</option>
+        </select>
+    </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Legend -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
+    <div class="card animate-in" style="border-left:3px solid #10b981;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:24px;font-weight:700;color:#10b981;">{{ total_a }}</div>
+                <div class="text-secondary" style="font-size:13px;">Группа A — «Ходовые»</div>
+                <div class="text-muted" style="font-size:12px;">80% выручки</div>
+            </div>
+            <div style="width:48px;height:48px;background:rgba(16,185,129,0.15);border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#10b981;">A</div>
+        </div>
+    </div>
+    <div class="card animate-in" style="border-left:3px solid #f59e0b;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:24px;font-weight:700;color:#f59e0b;">{{ total_b }}</div>
+                <div class="text-secondary" style="font-size:13px;">Группа B — «Средние»</div>
+                <div class="text-muted" style="font-size:12px;">15% выручки</div>
+            </div>
+            <div style="width:48px;height:48px;background:rgba(245,158,11,0.15);border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#f59e0b;">B</div>
+        </div>
+    </div>
+    <div class="card animate-in" style="border-left:3px solid #ef4444;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:24px;font-weight:700;color:#ef4444;">{{ total_c }}</div>
+                <div class="text-secondary" style="font-size:13px;">Группа C — «Залежалые»</div>
+                <div class="text-muted" style="font-size:12px;">5% выручки</div>
+            </div>
+            <div style="width:48px;height:48px;background:rgba(239,68,68,0.15);border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#ef4444;">C</div>
+        </div>
+    </div>
+</div>
+
+{% if items %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h3 class="card-title">Все товары по группам</h3>
+        <span class="text-muted">{{ items|length }} товаров</span>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th style="width:36px;">Гр.</th>
+                    <th>OEM</th>
+                    <th>Название</th>
+                    <th>Бренд</th>
+                    <th style="text-align:right;">Кол-во</th>
+                    <th style="text-align:right;">Выручка</th>
+                    <th style="text-align:right;">% от общей</th>
+                    <th style="text-align:right;">Прибыль</th>
+                    <th style="width:120px;">Накопленно</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                {% if item.abc_group == 'A' %}
+                <tr style="background:rgba(16,185,129,0.08)">
+                    <td class="text-muted">{{ forloop.counter }}</td>
+                    <td><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-weight:700;font-size:12px;background:rgba(16,185,129,0.15);color:#10b981;">A</span></td>
+                    <td class="text-muted" style="font-size:12px;">{{ item.product__oem_number|default:"—" }}</td>
+                    <td style="font-weight:500;font-size:13px;">{% if item.product__id %}<a href="{% url 'product_detail' item.product__id %}">{{ item.product__name|default:"Удалён"|truncatechars:40 }}</a>{% else %}{{ item.product__name|default:"Удалён"|truncatechars:40 }}{% endif %}</td>
+                    <td class="text-muted" style="font-size:12px;">{{ item.product__brand|default:"—" }}</td>
+                    <td style="text-align:right;">{{ item.total_qty }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ item.total_revenue|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td style="text-align:right;"><span style="color:#10b981;">{{ item.revenue_pct }}%</span></td>
+                    <td style="text-align:right;color:{% if item.total_profit > 0 %}var(--success){% else %}#ef4444{% endif %};">{{ item.total_profit|floatformat:0|intcomma }}</td>
+                    <td><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;"><div style="width:{{ item.cumulative_pct }}%;height:100%;background:#10b981;border-radius:3px;"></div></div><span style="font-size:11px;color:var(--text-muted);">{{ item.cumulative_pct }}%</span></div></td>
+                </tr>
+                {% elif item.abc_group == 'B' %}
+                <tr style="background:rgba(245,158,11,0.08)">
+                    <td class="text-muted">{{ forloop.counter }}</td>
+                    <td><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-weight:700;font-size:12px;background:rgba(245,158,11,0.15);color:#f59e0b;">B</span></td>
+                    <td class="text-muted" style="font-size:12px;">{{ item.product__oem_number|default:"—" }}</td>
+                    <td style="font-weight:500;font-size:13px;">{% if item.product__id %}<a href="{% url 'product_detail' item.product__id %}">{{ item.product__name|default:"Удалён"|truncatechars:40 }}</a>{% else %}{{ item.product__name|default:"Удалён"|truncatechars:40 }}{% endif %}</td>
+                    <td class="text-muted" style="font-size:12px;">{{ item.product__brand|default:"—" }}</td>
+                    <td style="text-align:right;">{{ item.total_qty }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ item.total_revenue|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td style="text-align:right;"><span style="color:#f59e0b;">{{ item.revenue_pct }}%</span></td>
+                    <td style="text-align:right;color:{% if item.total_profit > 0 %}var(--success){% else %}#ef4444{% endif %};">{{ item.total_profit|floatformat:0|intcomma }}</td>
+                    <td><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;"><div style="width:{{ item.cumulative_pct }}%;height:100%;background:#f59e0b;border-radius:3px;"></div></div><span style="font-size:11px;color:var(--text-muted);">{{ item.cumulative_pct }}%</span></div></td>
+                </tr>
+                {% else %}
+                <tr style="background:rgba(239,68,68,0.06)">
+                    <td class="text-muted">{{ forloop.counter }}</td>
+                    <td><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-weight:700;font-size:12px;background:rgba(239,68,68,0.15);color:#ef4444;">C</span></td>
+                    <td class="text-muted" style="font-size:12px;">{{ item.product__oem_number|default:"—" }}</td>
+                    <td style="font-weight:500;font-size:13px;">{% if item.product__id %}<a href="{% url 'product_detail' item.product__id %}">{{ item.product__name|default:"Удалён"|truncatechars:40 }}</a>{% else %}{{ item.product__name|default:"Удалён"|truncatechars:40 }}{% endif %}</td>
+                    <td class="text-muted" style="font-size:12px;">{{ item.product__brand|default:"—" }}</td>
+                    <td style="text-align:right;">{{ item.total_qty }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ item.total_revenue|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td style="text-align:right;"><span style="color:#ef4444;">{{ item.revenue_pct }}%</span></td>
+                    <td style="text-align:right;color:{% if item.total_profit > 0 %}var(--success){% else %}#ef4444{% endif %};">{{ item.total_profit|floatformat:0|intcomma }}</td>
+                    <td><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;"><div style="width:{{ item.cumulative_pct }}%;height:100%;background:#ef4444;border-radius:3px;"></div></div><span style="font-size:11px;color:var(--text-muted);">{{ item.cumulative_pct }}%</span></div></td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        <h3>Нет данных о продажах</h3>
+        <p>ABC-анализ появится после того, как будут созданы и завершены заказы</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

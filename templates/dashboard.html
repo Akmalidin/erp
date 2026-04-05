@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Dashboard — AutoParts CRM{% endblock %}
+{% block navbar_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Товары</span>
+            <div class="stat-card-icon blue">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 01-8 0"></path></svg>
+            </div>
+        </div>
+        <div class="stat-card-value" data-counter="{{ total_products }}">0</div>
+    </div>
+
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Клиенты</span>
+            <div class="stat-card-icon green">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 00-3-3.87"></path><path d="M16 3.13a4 4 0 010 7.75"></path></svg>
+            </div>
+        </div>
+        <div class="stat-card-value" data-counter="{{ total_clients }}">0</div>
+    </div>
+
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Продажи за месяц</span>
+            <div class="stat-card-icon orange">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+            </div>
+        </div>
+        <div class="stat-card-value">{{ monthly_sales|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+    </div>
+
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Заказов сегодня</span>
+            <div class="stat-card-icon purple">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            </div>
+        </div>
+        <div class="stat-card-value" data-counter="{{ today_orders }}">0</div>
+    </div>
+
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Всего заказов</span>
+            <div class="stat-card-icon yellow">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+        </div>
+        <div class="stat-card-value" data-counter="{{ total_orders }}">0</div>
+    </div>
+
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Мало на складе</span>
+            <div class="stat-card-icon red">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+        </div>
+        <div class="stat-card-value" data-counter="{{ low_stock }}">0</div>
+    </div>
+</div>
+
+<!-- Sales Chart -->
+<div style="display:grid;grid-template-columns:1fr 320px;gap:20px;margin-bottom:24px;">
+    <div class="card animate-in">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Продажи за 30 дней</h3>
+                <p class="card-subtitle">Ежедневная выручка</p>
+            </div>
+        </div>
+        <div style="padding:0 8px 8px;">
+            <canvas id="salesChart" height="90"></canvas>
+        </div>
+    </div>
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Топ товаров</h3>
+        </div>
+        {% if top_products %}
+        <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:8px;">
+            {% for p in top_products %}
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:6px 0;border-bottom:1px solid var(--border);">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        {{ p.product__name|default:"Удалён"|truncatechars:28 }}
+                    </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                    <div style="font-size:12px;color:var(--accent-to);font-weight:600;">
+                        {{ p.total_qty }} шт
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted" style="font-size:13px;">Нет данных</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+    <a href="{% url 'order_create' %}" class="quick-action animate-in">
+        <div class="quick-action-icon" style="background: rgba(255,90,31,0.12); color: var(--accent-to);">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </div>
+        <span class="quick-action-text">Новый заказ</span>
+    </a>
+    <a href="{% url 'product_create' %}" class="quick-action animate-in">
+        <div class="quick-action-icon" style="background: rgba(59,130,246,0.12); color: var(--info);">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+        </div>
+        <span class="quick-action-text">Добавить товар</span>
+    </a>
+    <a href="{% url 'client_create' %}" class="quick-action animate-in">
+        <div class="quick-action-icon" style="background: rgba(16,185,129,0.12); color: var(--success);">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+        </div>
+        <span class="quick-action-text">Новый клиент</span>
+    </a>
+    <a href="{% url 'product_import' %}" class="quick-action animate-in">
+        <div class="quick-action-icon" style="background: rgba(139,92,246,0.12); color: #8b5cf6;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </div>
+        <span class="quick-action-text">Импорт прайса</span>
+    </a>
+</div>
+
+<!-- Recent Orders -->
+<div class="card animate-in">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">Последние заказы</h3>
+            <p class="card-subtitle">10 последних заказов</p>
+        </div>
+        <a href="{% url 'order_list' %}" class="btn btn-secondary btn-sm">Все заказы</a>
+    </div>
+
+    {% if recent_orders %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Клиент</th>
+                    <th>Сумма</th>
+                    <th>Статус</th>
+                    <th>Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in recent_orders %}
+                <tr>
+                    <td><a href="{% url 'order_detail' order.pk %}" class="text-accent fw-bold">#{{ order.pk }}</a></td>
+                    <td>{{ order.client.name|default:"—" }}</td>
+                    <td class="fw-bold">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td>
+                        <span class="badge badge-{{ order.status }}">{{ order.get_status_display }}</span>
+                    </td>
+                    <td class="text-muted">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <h3>Нет заказов</h3>
+        <p>Создайте первый заказ, чтобы начать работу</p>
+        <a href="{% url 'order_create' %}" class="btn btn-primary">Создать заказ</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const salesData = {{ sales_by_day|safe }};
+const labels = salesData.map(d => {
+    const dt = new Date(d.date);
+    return dt.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+});
+const values = salesData.map(d => parseFloat(d.total) || 0);
+
+const ctx = document.getElementById('salesChart');
+if (ctx) {
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Выручка',
+                data: values,
+                backgroundColor: 'rgba(255,90,31,0.25)',
+                borderColor: 'rgba(255,90,31,0.9)',
+                borderWidth: 1.5,
+                borderRadius: 4,
+                hoverBackgroundColor: 'rgba(255,90,31,0.45)',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ' ' + new Intl.NumberFormat('ru-RU').format(Math.round(ctx.parsed.y)) + ' {{ user.currency_symbol }}'
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: {
+                        color: '#64748b',
+                        font: { size: 11 },
+                        callback: v => new Intl.NumberFormat('ru-RU', {notation:'compact'}).format(v)
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

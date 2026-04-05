@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ product.name }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}Товар{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ product.name }}</h1>
+        <p class="page-subtitle">OEM: {{ product.oem_number }}</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'product_edit' product.pk %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Редактировать
+        </a>
+        <a href="{% url 'product_delete' product.pk %}" class="btn btn-danger">Удалить</a>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+    <!-- Left: Product Info -->
+    <div>
+        <div class="card mb-3">
+            <h3 class="card-title mb-2">Информация о товаре</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">OEM номер</span>
+                    <span class="detail-value">{{ product.oem_number }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Артикул</span>
+                    <span class="detail-value">{{ product.part_number|default:"—" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Категория</span>
+                    <span class="detail-value">{{ product.category.name|default:"—" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Бренд</span>
+                    <span class="detail-value">{{ product.brand|default:"—" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Остаток</span>
+                    <span class="detail-value">
+                        {% if product.stock_quantity == 0 %}
+                            <span class="badge badge-out">Нет в наличии</span>
+                        {% elif product.is_low_stock %}
+                            <span class="badge badge-low">{{ product.stock_quantity }} шт</span>
+                        {% else %}
+                            <span class="badge badge-ok">{{ product.stock_quantity }} шт</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Место хранения</span>
+                    <span class="detail-value">{{ product.location|default:"—" }}</span>
+                </div>
+            </div>
+            {% if product.description %}
+            <div class="detail-item" style="margin-top: 16px;">
+                <span class="detail-label">Описание</span>
+                <span class="detail-value">{{ product.description }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Stock Movements -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">История движений</h3>
+            </div>
+            {% if movements %}
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Тип</th>
+                            <th>Изменение</th>
+                            <th>Примечание</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movements %}
+                        <tr>
+                            <td class="text-muted">{{ m.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>{{ m.get_movement_type_display }}</td>
+                            <td class="{% if m.change > 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {% if m.change > 0 %}+{% endif %}{{ m.change }}
+                            </td>
+                            <td class="text-muted">{{ m.note|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted" style="padding: 20px;">Нет движений</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Price Card -->
+    <div>
+        <div class="card">
+            <h3 class="card-title mb-2">Цены</h3>
+            <div class="detail-item" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+                <span class="detail-label">Закупочная цена</span>
+                <span class="detail-value" style="font-size: 18px;">{{ product.price_purchase|floatformat:0|intcomma }} ₸</span>
+            </div>
+            {% for item in all_prices %}
+            <div class="price-level-row {% if item.level.is_default %}price-level-default{% endif %}">
+                <div>
+                    <span class="price-level-name">{{ item.level.name }}</span>
+                    <span class="text-muted" style="font-size: 12px; margin-left: 8px;">+{{ item.level.markup_percent }}%</span>
+                </div>
+                <span class="price-level-price">{{ item.price|floatformat:0|intcomma }} ₸</span>
+            </div>
+            {% endfor %}
+            <div style="margin-top: 16px;">
+                <a href="{% url 'price_level_list' %}" class="btn btn-secondary btn-sm btn-block">Настроить наценки</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

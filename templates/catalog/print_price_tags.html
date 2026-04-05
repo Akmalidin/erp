@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Ценники</title>
+    <style>
+        @media print {
+            @page { margin: 4mm; size: A4; }
+            .no-print { display: none !important; }
+            body { margin: 0; }
+        }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fff;
+            color: #000;
+            margin: 0;
+            padding: 8px;
+        }
+        .controls {
+            background: #f5f5f5;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .tag {
+            width: 58mm;
+            height: 40mm;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 3mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            page-break-inside: avoid;
+            overflow: hidden;
+        }
+        .tag-name {
+            font-size: 9pt;
+            font-weight: bold;
+            line-height: 1.2;
+            max-height: 2.8em;
+            overflow: hidden;
+            word-break: break-word;
+        }
+        .tag-oem {
+            font-size: 7pt;
+            color: #555;
+            margin-top: 1mm;
+        }
+        .tag-barcode-text {
+            font-family: monospace;
+            font-size: 8pt;
+            text-align: center;
+            letter-spacing: 1px;
+            margin: 1mm 0;
+        }
+        .tag-price {
+            font-size: 16pt;
+            font-weight: 900;
+            text-align: right;
+            line-height: 1;
+        }
+        .tag-currency {
+            font-size: 9pt;
+            font-weight: normal;
+        }
+        .tag-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .btn {
+            padding: 6px 14px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-primary { background: #ff5a1f; color: #fff; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+    </style>
+</head>
+<body>
+
+<div class="controls no-print">
+    <strong>Ценников: {{ products|length }}</strong>
+    <button class="btn btn-primary" onclick="window.print()">🖨 Распечатать</button>
+    <button class="btn btn-secondary" onclick="window.history.back()">← Назад</button>
+</div>
+
+{% if products %}
+<div class="tags-grid">
+    {% for p in products %}
+    <div class="tag">
+        <div>
+            <div class="tag-name">{{ p.name|truncatechars:55 }}</div>
+            <div class="tag-oem">
+                {% if p.oem_number %}OEM: {{ p.oem_number }}{% endif %}
+                {% if p.brand %} · {{ p.brand }}{% endif %}
+            </div>
+        </div>
+        <div class="tag-barcode-text">{{ p.barcode_val }}</div>
+        <div class="tag-bottom">
+            <div style="font-size:7pt;color:#777;">{{ p.location }}</div>
+            <div class="tag-price">
+                {{ p.price_display|floatformat:0 }}
+                <span class="tag-currency">{{ request.user.currency_symbol }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p style="color:#888;text-align:center;padding:40px;">
+    Товары не выбраны.<br>
+    Вернитесь в каталог и выберите товары для печати.
+</p>
+{% endif %}
+
+</body>
+</html>

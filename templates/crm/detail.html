@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ client.name }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}Клиент{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ client.name }}</h1>
+        <p class="page-subtitle">{% if client.company_name %}{{ client.company_name }} · {% endif %}Клиент с {{ client.created_at|date:"d.m.Y" }}</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'client_edit' client.pk %}" class="btn btn-secondary">Редактировать</a>
+        <a href="{% url 'client_delete' client.pk %}" class="btn btn-danger">Удалить</a>
+    </div>
+</div>
+
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Долг клиента</span>
+            <div class="stat-card-icon red">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+        </div>
+        <div class="stat-card-value text-danger">{{ client.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+    </div>
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Всего потрачено</span>
+            <div class="stat-card-icon orange">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+            </div>
+        </div>
+        <div class="stat-card-value">{{ total_spent|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+    </div>
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Средний чек</span>
+            <div class="stat-card-icon green">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+        </div>
+        <div class="stat-card-value">{% if order_count > 0 %}{{ total_spent|floatformat:0|intcomma }}{% else %}0{% endif %} {{ user.currency_symbol }}</div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <h3 class="card-title mb-2">Контактная информация</h3>
+    <div class="detail-grid">
+        <div class="detail-item">
+            <span class="detail-label">Телефон</span>
+            <span class="detail-value">{{ client.phone|default:"Не указан" }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Email</span>
+            <span class="detail-value">{{ client.email|default:"Не указан" }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Компания</span>
+            <span class="detail-value">{{ client.company_name|default:"Не указана" }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Адрес</span>
+            <span class="detail-value">{{ client.address|default:"Не указан" }}</span>
+        </div>
+        {% if client.discount_percent > 0 %}
+        <div class="detail-item">
+            <span class="detail-label">Персональная скидка</span>
+            <span class="detail-value" style="color:var(--success);font-weight:700;">
+                {{ client.discount_percent }}%
+            </span>
+        </div>
+        {% endif %}
+    </div>
+    {% if client.notes %}
+    <div class="detail-item mt-2">
+        <span class="detail-label">Заметки</span>
+        <span class="detail-value">{{ client.notes }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Order History -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+    <!-- Order History -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">История заказов</h3>
+            <a href="{% url 'order_create' %}" class="btn btn-primary btn-sm">+ Новый заказ</a>
+        </div>
+        {% if orders %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Сумма</th>
+                        <th>Статус</th>
+                        <th>Дата</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td><a href="{% url 'order_detail' order.pk %}" class="text-accent fw-bold">#{{ order.pk }}</a></td>
+                        <td class="fw-bold">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                        <td><span class="badge badge-{{ order.status }}">{{ order.get_status_display }}</span></td>
+                        <td class="text-muted">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted" style="padding: 20px;">Нет заказов</p>
+        {% endif %}
+    </div>
+
+    <!-- Payments & Debt Management -->
+    <div>
+        <div class="card mb-3">
+            <h3 class="card-title mb-2">Принять оплату</h3>
+            <form method="post" action="{% url 'record_payment' client.pk %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label">Сумма ({{ user.currency_symbol }})</label>
+                    <input type="number" name="amount" class="form-input" placeholder="0.00" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Способ</label>
+                    <select name="payment_type" class="form-input">
+                        <option value="cash">Наличные</option>
+                        <option value="card">Карта</option>
+                        <option value="transfer">Перевод</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Примечание</label>
+                    <input type="text" name="note" class="form-input" placeholder="...">
+                </div>
+                <button type="submit" class="btn btn-success btn-block">Записать платеж</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3 class="card-title mb-2">Последние платежи</h3>
+            {% if payments %}
+            <div class="table-container">
+                <table class="data-table" style="font-size: 0.9rem;">
+                    <tbody>
+                        {% for payment in payments|slice:":10" %}
+                        <tr>
+                            <td>
+                                <div>{{ payment.amount|floatformat:0 }} {{ user.currency_symbol }}</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">{{ payment.get_payment_type_display }}</div>
+                            </td>
+                            <td class="text-right text-muted">{{ payment.created_at|date:"d.m.Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center" style="padding: 10px;">Нет платежей</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

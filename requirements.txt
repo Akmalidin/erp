@@ -1,0 +1,6 @@
+Django==4.2.16
+pandas>=2.1.0
+openpyxl>=3.1.5
+pyinstaller>=6.0
+gunicorn>=21.2.0
+whitenoise>=6.6.0

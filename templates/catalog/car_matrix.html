@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Матрица автомобилей — AutoParts CRM{% endblock %}
+{% block navbar_title %}Управление марками и моделями{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Матрица автомобилей</h1>
+    <button class="btn btn-primary" onclick="openMakeModal()">+ Добавить марку</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    {% for make in makes %}
+    <div class="card animate-in">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--accent-from);">{{ make.name }}</h3>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary btn-sm" onclick="openModelModal('{{ make.id }}', '{{ make.name }}')" title="Добавить модель">+</button>
+                <form method="post" onsubmit="return confirm('Удалить марку {{ make.name }} со всеми моделями?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_make">
+                    <input type="hidden" name="pk" value="{{ make.id }}">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--danger-color);">✕</button>
+                </form>
+            </div>
+        </div>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            {% for model in make.models.all %}
+            <div class="badge" style="background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); display: flex; align-items: center; gap: 6px; padding: 6px 12px;">
+                {{ model.name }}
+                <form method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_model">
+                    <input type="hidden" name="pk" value="{{ model.id }}">
+                    <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer; color: var(--text-muted); font-size: 14px;">✕</button>
+                </form>
+            </div>
+            {% empty %}
+            <p class="text-muted" style="font-size: 13px;">Моделей пока нет</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="card text-center text-muted p-5" style="grid-column: 1 / -1;">
+        Добавьте первую марку автомобиля (например, Toyota, BMW, Mercedes), чтобы начать.
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Make Modal -->
+<div id="make-modal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div class="card" style="max-width:400px; width:100%; margin:20px;">
+        <h3 class="card-title mb-3">Новая марка</h3>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_make">
+            <div class="form-group">
+                <label class="form-label">Название марки</label>
+                <input type="text" name="name" class="form-input" placeholder="Напр: Toyota" required autofocus>
+            </div>
+            <div style="display:flex; gap:12px; margin-top:20px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;">Добавить</button>
+                <button type="button" class="btn btn-secondary" onclick="closeMakeModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Model Modal -->
+<div id="model-modal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div class="card" style="max-width:400px; width:100%; margin:20px;">
+        <h3 class="card-title mb-3">Новая модель для <span id="make-name-display" style="color:var(--accent-from);"></span></h3>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_model">
+            <input type="hidden" name="make_id" id="make-id-input">
+            <div class="form-group">
+                <label class="form-label">Название модели</label>
+                <input type="text" name="name" class="form-input" placeholder="Напр: Camry" required autofocus>
+            </div>
+            <div style="display:flex; gap:12px; margin-top:20px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;">Добавить</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModelModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openMakeModal() {
+        document.getElementById('make-modal').style.display = 'flex';
+        document.getElementById('make-modal').querySelector('input[name="name"]').focus();
+    }
+    function closeMakeModal() {
+        document.getElementById('make-modal').style.display = 'none';
+    }
+    function openModelModal(makeId, makeName) {
+        document.getElementById('make-id-input').value = makeId;
+        document.getElementById('make-name-display').innerText = makeName;
+        document.getElementById('model-modal').style.display = 'flex';
+        document.getElementById('model-modal').querySelector('input[name="name"]').focus();
+    }
+    function closeModelModal() {
+        document.getElementById('model-modal').style.display = 'none';
+    }
+    
+    // Close on Esc
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeMakeModal();
+            closeModelModal();
+        }
+    });
+</script>
+{% endblock %}

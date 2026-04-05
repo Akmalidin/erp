@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Django
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+backups/
+media/
+staticfiles/
+local_settings.py
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets / env
+.env
+*.env
+secrets.py
+
+# PyInstaller
+*.spec.bak
+dist/
+build/
+
+# Temp imports
+tmp_imports/
+
+# Logs
+*.log
+logs/

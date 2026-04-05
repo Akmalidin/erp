@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'client_list' %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<div class="card" style="max-width: 700px;">
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #ef4444; font-size: 13px;">
+            {% for field in form %}{% for error in field.errors %}<div><strong>{{ field.label }}:</strong> {{ error }}</div>{% endfor %}{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label class="form-label" for="client-name">ФИО / Название *</label>
+            {{ form.name }}
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label" for="client-phone">Телефон</label>
+                {{ form.phone }}
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="client-email">Email</label>
+                {{ form.email }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="client-company">Компания</label>
+            {{ form.company_name }}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="client-address">Адрес</label>
+            {{ form.address }}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="client-discount">
+                Персональная скидка (%)
+                <span class="text-muted" style="font-size:12px;font-weight:normal;">
+                    — автоматически применяется при создании заказа
+                </span>
+            </label>
+            {{ form.discount_percent }}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="client-notes">Заметки</label>
+            {{ form.notes }}
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 12px;">
+            <button type="submit" class="btn btn-primary btn-lg">Сохранить</button>
+            <a href="{% url 'client_list' %}" class="btn btn-secondary btn-lg">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

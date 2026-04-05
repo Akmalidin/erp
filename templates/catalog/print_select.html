@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Выбор категорий — AutoParts CRM{% endblock %}
+{% block navbar_title %}Печать прайс-листа{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Выбор категорий для печати</h1>
+</div>
+
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <form method="get" action="{% url 'print_price_list' %}">
+        <div class="mb-3">
+            <label class="form-label">Выберите категории для включения в прайс-лист:</label>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-top: 12px;">
+                <div class="form-group mb-2">
+                    <label class="d-flex align-items-center" style="cursor: pointer; padding: 4px 0;">
+                        <input type="checkbox" name="all" value="1" id="select-all" style="margin-right: 12px; width: 18px; height: 18px;">
+                        <span class="fw-bold">Все категории</span>
+                    </label>
+                </div>
+                <hr style="border: 0; border-top: 1px solid var(--border); margin: 8px 0;">
+                
+                {% for category in categories %}
+                <div class="form-group mb-2">
+                    <label class="d-flex align-items-center" style="cursor: pointer; padding: 4px 0;">
+                        <input type="checkbox" name="categories" value="{{ category.id }}" class="cat-checkbox" style="margin-right: 12px; width: 18px; height: 18px;">
+                        <span>{{ category.name }} <small class="text-muted">({{ category.product_count }})</small></span>
+                    </label>
+                </div>
+                {% endfor %}
+
+                {% if no_cat_count > 0 %}
+                <div class="form-group mb-2">
+                    <label class="d-flex align-items-center" style="cursor: pointer; padding: 4px 0;">
+                        <input type="checkbox" name="no_category" value="1" class="cat-checkbox" style="margin-right: 12px; width: 18px; height: 18px;">
+                        <span>Без категории <small class="text-muted">({{ no_cat_count }})</small></span>
+                    </label>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">Сформировать прайс</button>
+            <a href="{% url 'product_list' %}" class="btn btn-secondary">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.cat-checkbox');
+
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            if (!this.checked) {
+                selectAll.checked = false;
+            }
+        });
+    });
+</script>
+{% endblock %}

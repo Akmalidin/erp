@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Управление складами — AutoParts CRM{% endblock %}
+{% block navbar_title %}Склады и Локации{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Управление складами</h1>
+    <button class="btn btn-primary" onclick="toggleModal('warehouse-modal')">➕ Добавить склад</button>
+</div>
+
+<div class="grid-container" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    {% for w in warehouses %}
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">{{ w.name }}</h3>
+            {% if w.is_default %}
+            <span class="badge badge-processing">Основной</span>
+            {% endif %}
+        </div>
+        <div style="padding: 16px;">
+            <p class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> {{ w.address|default:"Адрес не указан" }}</p>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'stock_list' %}?warehouse={{ w.pk }}" class="btn btn-secondary btn-sm">Перейти к остаткам</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card" style="grid-column: 1/-1; text-align: center; padding: 40px;">
+        <p class="text-muted">У вас пока нет созданных складов. Создайте первый!</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Warehouse Modal -->
+<div class="modal-overlay" id="warehouse-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: var(--card-bg); padding: 30px; border-radius: 12px; width: 100%; max-width: 450px;">
+        <h2 style="margin-top: 0;">Новый склад</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Название</label>
+                <input type="text" name="name" class="form-input" placeholder="например: Основной склад или Магазин №1" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Адрес</label>
+                <input type="text" name="address" class="form-input" placeholder="г. Бишкек, ул. ..." >
+            </div>
+            <div class="mb-3" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" name="is_default" id="is_default" style="width: 20px; height: 20px;">
+                <label for="is_default">Сделать основным</label>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Сохранить</button>
+                <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="toggleModal('warehouse-modal')">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleModal(id) {
+        const modal = document.getElementById(id);
+        modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+    }
+</script>
+{% endblock %}

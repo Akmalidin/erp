@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Массовое редактирование — AutoParts CRM{% endblock %}
+{% block navbar_title %}Массовое редактирование{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Массовое редактирование</h1>
+        <p class="page-subtitle">Изменение цен, остатков и названий (показано первые 100 товаров)</p>
+    </div>
+    <div class="page-header-actions">
+        <button type="submit" form="bulk-edit-form" class="btn btn-primary">Сохранить изменения</button>
+        <a href="{% url 'product_list' %}" class="btn btn-secondary">Отмена</a>
+    </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="search-bar mb-3" id="bulk-search-form">
+    <div class="search-input-wrapper" style="flex: 1;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" value="{{ query|default:'' }}" class="search-input" placeholder="Поиск по названию или OEM..." autofocus>
+        {% if query %}
+        <a href="?category={{ category_id|default:'' }}" class="search-clear" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 18px;">&times;</a>
+        {% endif %}
+    </div>
+    <select name="category" class="filter-select">
+        <option value="">Все категории</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if category_id == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">Найти</button>
+</form>
+
+<form method="post" id="bulk-edit-form">
+    {% csrf_token %}
+    <div class="card">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 200px;">OEM</th>
+                        <th>Название</th>
+                        <th style="width: 150px;">Закупка ({{ user.currency_symbol }})</th>
+                        <th style="width: 120px;">Остаток</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                    <tr>
+                        <td>
+                            <input type="text" name="oem_{{ p.id }}" value="{{ p.oem_number }}" class="form-input" style="padding: 4px 8px; font-size: 13px;">
+                        </td>
+                        <td>
+                            <input type="text" name="name_{{ p.id }}" value="{{ p.name }}" class="form-input" style="padding: 4px 8px; font-size: 13px;">
+                        </td>
+                        <td>
+                            <input type="number" name="price_{{ p.id }}" value="{{ p.price_purchase|floatformat:2 }}" step="0.01" class="form-input" style="padding: 4px 8px; font-size: 13px;">
+                        </td>
+                        <td>
+                            <input type="number" name="stock_{{ p.id }}" value="{{ p.stock_quantity }}" class="form-input" style="padding: 4px 8px; font-size: 13px;">
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">Товары не найдены</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <a href="{% url 'product_list' %}" class="btn btn-secondary btn-lg">Отмена</a>
+        <button type="submit" class="btn btn-primary btn-lg">Сохранить все изменения</button>
+    </div>
+</form>
+{% endblock %}

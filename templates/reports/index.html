@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Отчеты — AutoParts CRM{% endblock %}
+{% block navbar_title %}Отчеты{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Аналитика и отчеты</h1>
+</div>
+
+<!-- Period Filter -->
+<form method="get" class="report-period-bar">
+    <button type="button" class="period-btn {% if period == '7' %}active{% endif %}" onclick="setPeriod(7)">7 дней</button>
+    <button type="button" class="period-btn {% if period == '30' %}active{% endif %}" onclick="setPeriod(30)">30 дней</button>
+    <button type="button" class="period-btn {% if period == '90' %}active{% endif %}" onclick="setPeriod(90)">90 дней</button>
+    <button type="button" class="period-btn {% if period == '365' %}active{% endif %}" onclick="setPeriod(365)">Год</button>
+    <div class="date-inputs">
+        <input type="date" name="date_from" value="{{ date_from }}">
+        <span class="text-muted">—</span>
+        <input type="date" name="date_to" value="{{ date_to }}">
+        <button type="submit" class="btn btn-secondary btn-sm">Применить</button>
+    </div>
+</form>
+
+<!-- Summary Stats -->
+<div class="stats-grid">
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Выручка за период</span>
+            <div class="stat-card-icon blue">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+            </div>
+        </div>
+        <div class="stat-card-value">{{ total_sales|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+    </div>
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Расходы за период</span>
+            <div class="stat-card-icon red">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21v-8"></path><path d="M17 16l-5-5-5 5"></path><path d="M22 12A10 10 0 1112 2a10 10 0 0110 10z"></path></svg>
+            </div>
+        </div>
+        <div class="stat-card-value text-danger">{{ total_expenses|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+    </div>
+    <div class="stat-card animate-in" style="border: 2px solid var(--accent-from); background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent);">
+        <div class="stat-card-header">
+            <span class="stat-card-label">ЧИСТАЯ ПРИБЫЛЬ</span>
+            <div class="stat-card-icon green" style="background: var(--accent-from);">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+        </div>
+        <div class="stat-card-value {% if net_profit >= 0 %}text-success{% else %}text-danger{% endif %}" style="font-size: 2.2rem; font-weight: 900;">
+            {{ net_profit|floatformat:0|intcomma }} {{ user.currency_symbol }}
+        </div>
+        <small class="text-muted">За вычетом всех расходов</small>
+    </div>
+    <div class="stat-card animate-in">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Ценность склада (Закуп)</span>
+            <div class="stat-card-icon orange">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+            </div>
+        </div>
+        <div class="stat-card-value">{{ stock_value_purchase|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <!-- Top Products -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Топ товары</h3>
+        </div>
+        {% if top_products %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Товар</th>
+                        <th>Продано</th>
+                        <th>Выручка</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in top_products %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter }}</td>
+                        <td>
+                            <div>{{ p.product__name|truncatechars:30 }}</div>
+                            <div class="text-muted" style="font-size:12px;">{{ p.product__oem_number }}</div>
+                        </td>
+                        <td class="fw-bold">{{ p.total_qty }} шт</td>
+                        <td class="text-accent fw-bold">{{ p.total_revenue|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted" style="padding: 20px;">Нет данных за период</p>
+        {% endif %}
+    </div>
+
+    <!-- Top Clients -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Топ клиенты</h3>
+        </div>
+        {% if top_clients %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Клиент</th>
+                        <th>Заказов</th>
+                        <th>Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in top_clients %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter }}</td>
+                        <td><a href="{% url 'client_detail' c.pk %}">{{ c.name }}</a></td>
+                        <td>{{ c.order_count }}</td>
+                        <td class="text-accent fw-bold">{{ c.total_spent|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted" style="padding: 20px;">Нет данных за период</p>
+        {% endif %}
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+    <!-- Sales by Category -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Продажи по категориям</h3>
+        </div>
+        {% if sales_by_category %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Категория</th>
+                        <th>Кол-во</th>
+                        <th style="text-align:right;">Прибыль</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in sales_by_category %}
+                    <tr>
+                        <td>{{ cat.product__category__name|default:"Без категории" }}</td>
+                        <td>{{ cat.total_qty }} шт</td>
+                        <td style="text-align:right;" class="fw-bold text-success">{{ cat.total_profit|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted" style="padding: 20px;">Нет данных по категориям</p>
+        {% endif %}
+    </div>
+
+    <!-- Sales by Brand -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Продажи по брендам</h3>
+        </div>
+        {% if sales_by_brand %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Бренд</th>
+                        <th>Кол-во</th>
+                        <th style="text-align:right;">Прибыль</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for brand in sales_by_brand %}
+                    <tr>
+                        <td class="fw-bold">{{ brand.product__brand|default:"—" }}</td>
+                        <td>{{ brand.total_qty }} шт</td>
+                        <td style="text-align:right;" class="fw-bold text-success">{{ brand.total_profit|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted" style="padding: 20px;">Нет данных по брендам</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sales by Day -->
+<div class="card mt-3 animate-in">
+    <div class="card-header">
+        <h3 class="card-title">Продажи по дням</h3>
+    </div>
+    {% if sales_by_day %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Заказов</th>
+                    <th>Выручка</th>
+                    <th>График</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in sales_by_day %}
+                <tr>
+                    <td>{{ day.date|date:"d.m.Y" }}</td>
+                    <td>{{ day.count }}</td>
+                    <td class="fw-bold">{{ day.total|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td style="width: 30%;">
+                        {% widthratio day.total total_sales 100 as width %}
+                        <div style="background: linear-gradient(90deg, var(--accent-to), var(--accent-from)); height: 8px; border-radius: 4px; width: {{ width }}%; min-width: 4px; opacity: 0.8;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted" style="padding: 20px;">Нет продаж за выбранный период</p>
+    {% endif %}
+</div>
+
+<!-- Low Stock Warning -->
+{% if low_stock_products %}
+<div class="card mt-3 animate-in">
+    <div class="card-header">
+        <h3 class="card-title" style="color: var(--warning);">⚠️ Низкие остатки</h3>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>OEM</th>
+                    <th>Товар</th>
+                    <th>Остаток</th>
+                    <th>Мин. остаток</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in low_stock_products %}
+                <tr>
+                    <td class="text-accent">{{ p.oem_number }}</td>
+                    <td><a href="{% url 'product_detail' p.pk %}">{{ p.name|truncatechars:40 }}</a></td>
+                    <td>
+                        {% if p.stock_quantity == 0 %}
+                        <span class="badge badge-out">0 шт</span>
+                        {% else %}
+                        <span class="badge badge-low">{{ p.stock_quantity }} шт</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ p.min_stock }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Financial Details & Debtors -->
+<div style="grid-template-columns: 1fr 1fr; display: grid; gap: 24px; margin-top: 24px;">
+    <!-- Stock Capitalization -->
+    <div class="card animate-in">
+        <h3 class="card-title mb-2">Капитализация склада</h3>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Себестоимость (Закуп)</span>
+                <span class="detail-value">{{ stock_value_purchase|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Рыночная цена (Розн)</span>
+                <span class="detail-value text-accent">{{ stock_value_retail|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Ожидаемая прибыль</span>
+                <span class="detail-value text-success" style="font-size: 1.2rem; font-weight: 800;">{{ potential_profit|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debtors List -->
+    <div class="card animate-in">
+        <h3 class="card-title mb-2">Список должников</h3>
+        {% if debtors %}
+        <div class="table-container">
+            <table class="data-table">
+                <tbody>
+                    {% for d in debtors|slice:":10" %}
+                    <tr>
+                        <td>
+                            <div><a href="{% url 'client_detail' d.pk %}" class="fw-bold">{{ d.name }}</a></div>
+                            <div class="text-muted" style="font-size: 12px;">{{ d.phone }}</div>
+                        </td>
+                        <td class="text-right">
+                            <span class="text-danger fw-bold">{{ d.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center" style="padding: 20px;">Должников нет 🎉</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status Breakdown -->
+{% if status_breakdown %}
+<div class="card mt-3 animate-in">
+    <div class="card-header">
+        <h3 class="card-title">Статусы заказов за период</h3>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+        {% for s in status_breakdown %}
+        <div style="padding: 16px; background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div class="text-muted" style="font-size: 12px; margin-bottom: 4px;">
+                {% if s.status == 'new' %}Новые
+                {% elif s.status == 'processing' %}В обработке
+                {% elif s.status == 'completed' %}Завершенные
+                {% elif s.status == 'cancelled' %}Отмененные
+                {% endif %}
+            </div>
+            <div style="font-size: 24px; font-weight: 800;">{{ s.count }}</div>
+            <div class="text-muted" style="font-size: 13px;">{{ s.total|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

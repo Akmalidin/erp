@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Регистрация — AutoParts CRM{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page">
+    <div class="auth-card" style="max-width: 500px;">
+        <div class="auth-logo">
+            <h1>AutoParts CRM</h1>
+            <p>Создайте аккаунт администратора</p>
+        </div>
+
+        <h2>Регистрация</h2>
+
+        <form method="post" id="register-form">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #ef4444; font-size: 13px;">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label class="form-label" for="register-email">Email *</label>
+                {{ form.email }}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="register-firstname">Имя</label>
+                    {{ form.first_name }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="register-lastname">Фамилия</label>
+                    {{ form.last_name }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="register-company">Компания</label>
+                {{ form.company_name }}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="register-phone">Телефон</label>
+                {{ form.phone }}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="register-currency">Валюта</label>
+                {{ form.currency }}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="register-password">Пароль *</label>
+                    {{ form.password }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="register-password-confirm">Подтверждение *</label>
+                    {{ form.password_confirm }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-submit">
+                Создать аккаунт
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

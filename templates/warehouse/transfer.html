@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Перемещение товара — AutoParts CRM{% endblock %}
+{% block navbar_title %}Перемещение между складами{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Перемещение товара</h1>
+</div>
+
+<div class="card animate-in" style="max-width: 600px; margin: 0 auto;">
+    <form method="post" class="p-4">
+        {% csrf_token %}
+        
+        <div class="mb-4">
+            <label class="form-label">Выберите товар</label>
+            <select name="product" class="form-input search-select" required>
+                <option value="">— Начните вводить название или OEM —</option>
+                {% for p in products %}
+                <option value="{{ p.pk }}">{{ p.oem_number }} — {{ p.name }} (Остаток: {{ p.stock_quantity }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="mb-4">
+                <label class="form-label">Откуда (Склад-источник)</label>
+                <select name="from_warehouse" class="form-input" required>
+                    {% for w in warehouses %}
+                    <option value="{{ w.pk }}" {% if w.is_default %}selected{% endif %}>{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Куда (Склад-получатель)</label>
+                <select name="to_warehouse" class="form-input" required>
+                    <option value="">— Выберите склад —</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.pk }}">{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Количество</label>
+            <input type="number" name="quantity" class="form-input" min="1" value="1" required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label">Примечание (необязательно)</label>
+            <input type="text" name="note" class="form-input" placeholder="например: Пополнение витрины">
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">Выполнить перемещение</button>
+            <a href="{% url 'stock_list' %}" class="btn btn-secondary" style="flex: 1; text-align: center;">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<!-- Styling for the select if needed -->
+<style>
+    .search-select {
+        height: 50px;
+        font-size: 16px;
+    }
+</style>
+{% endblock %}

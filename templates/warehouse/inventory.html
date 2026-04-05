@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Инвентаризация — AutoParts CRM{% endblock %}
+{% block navbar_title %}Инвентаризация{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Инвентаризация</h1>
+        <p class="page-subtitle">Сверка фактических остатков с данными системы</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'product_bulk_edit' %}" class="btn btn-secondary">Массовая правка</a>
+        <a href="{% url 'stock_list' %}" class="btn btn-secondary">Отмена</a>
+        <button type="submit" form="inventory-form" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Применить результаты
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="alert alert-info mb-3">
+        <strong>Инструкция:</strong> Введите фактическое количество товара, которое вы насчитали на складе. 
+        Система автоматически создаст корректирующие записи для приведения остатков в соответствие.
+    </div>
+
+    <form method="post" id="inventory-form">
+        {% csrf_token %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Товар / OEM</th>
+                        <th>Категория</th>
+                        <th class="text-center">В системе</th>
+                        <th class="text-center" style="width: 150px;">Фактически</th>
+                        <th class="text-center">Разница</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ product.name }}</div>
+                            <div class="text-accent" style="font-size: 0.85rem;">{{ product.oem_number }}</div>
+                        </td>
+                        <td class="text-muted">{{ product.category.name|default:"—" }}</td>
+                        <td class="text-center fw-bold" id="sys-qty-{{ product.id }}">{{ product.stock_quantity }}</td>
+                        <td class="text-center">
+                            <input type="number" 
+                                   name="prod_{{ product.id }}" 
+                                   class="form-input text-center" 
+                                   value="{{ product.stock_quantity }}" 
+                                   min="0"
+                                   oninput="updateDiff({{ product.id }}, {{ product.stock_quantity }}, this.value)">
+                        </td>
+                        <td class="text-center" id="diff-{{ product.id }}">
+                            <span class="text-muted">0</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">Нет товаров для инвентаризации</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+function updateDiff(id, sysQty, factQty) {
+    const diffEl = document.getElementById('diff-' + id);
+    if (!factQty || factQty === '') factQty = 0;
+    const diff = parseInt(factQty) - sysQty;
+    
+    if (diff > 0) {
+        diffEl.innerHTML = `<span style="color: var(--success); font-weight: bold;">+${diff}</span>`;
+    } else if (diff < 0) {
+        diffEl.innerHTML = `<span style="color: var(--danger); font-weight: bold;">${diff}</span>`;
+    } else {
+        diffEl.innerHTML = `<span class="text-muted">0</span>`;
+    }
+}
+</script>
+{% endblock %}

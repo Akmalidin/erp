@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Расходная накладная №{{ order.pk }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            color: #000;
+            margin: 0;
+            padding: 20mm;
+            line-height: 1.4;
+        }
+        h1 { font-size: 20px; text-align: center; margin-bottom: 20px; text-transform: uppercase; }
+        .header-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .info-block { flex: 1; }
+        .fw-bold { font-weight: bold; }
+        .mb-1 { margin-bottom: 5px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        
+        .total-section { display: flex; justify-content: flex-end; font-size: 16px; margin-bottom: 40px; }
+        .total-section table { width: 300px; border: none; margin: 0; }
+        .total-section td { border: none; padding: 4px; }
+        
+        .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
+        .sign-block { width: 40%; }
+        .sign-line { border-bottom: 1px solid #000; height: 30px; margin-top: 10px; display: inline-block; width: 100%; position: relative; }
+        .sign-desc { font-size: 11px; text-align: center; position: absolute; bottom: -15px; left: 0; width: 100%; }
+
+        @media print {
+            body { padding: 0; }
+            @page { margin: 15mm; size: A4; }
+            .no-print { display: none; }
+        }
+    </style>
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        }
+    </script>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+        <button onclick="window.print()" style="padding: 8px 16px; cursor: pointer;">🖨️ Печать</button>
+        <button onclick="window.close()" style="padding: 8px 16px; margin-left: 10px; cursor: pointer;">❌ Закрыть</button>
+    </div>
+
+    <h1>Расходная накладная № {{ order.pk }} от {{ order.created_at|date:"d.m.Y" }}</h1>
+    
+    <div class="header-info">
+        <div class="info-block">
+            <div class="fw-bold mb-1">Поставщик:</div>
+            <div>{{ request.user.company_name|default:"AutoParts" }}</div>
+            {% if request.user.phone %}<div>Тел: {{ request.user.phone }}</div>{% endif %}
+        </div>
+        <div class="info-block" style="padding-left: 20px;">
+            <div class="fw-bold mb-1">Покупатель:</div>
+            <div>{{ order.client.company_name|default:order.client.name|default:"Розничный покупатель" }}</div>
+            {% if order.client.phone %}<div>Тел: {{ order.client.phone }}</div>{% endif %}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="5%" class="text-center">№</th>
+                <th width="15%">OEM</th>
+                <th width="45%">Наименование товара</th>
+                <th width="10%" class="text-center">Кол-во</th>
+                <th width="12.5%" class="text-right">Цена</th>
+                <th width="12.5%" class="text-right">Сумма</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr>
+                <td class="text-center">{{ forloop.counter }}</td>
+                <td>{{ item.product.oem_number }}</td>
+                <td>{{ item.product.name }}</td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-right">{{ item.price|floatformat:0 }}</td>
+                <td class="text-right">{{ item.total_price|default:item.price|floatformat:0 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total-section">
+        <table>
+            <tr>
+                <td class="text-right fw-bold">Итого к оплате:</td>
+                <td class="text-right fw-bold" style="width: 120px; font-size: 18px;">
+                    {{ order.total_price|floatformat:0 }} {{ request.user.currency_symbol }}
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="signatures">
+        <div class="sign-block">
+            <div class="fw-bold">Отпустил:</div>
+            <div class="sign-line">
+                <span class="sign-desc">(подпись, Ф.И.О.)</span>
+            </div>
+        </div>
+        <div class="sign-block">
+            <div class="fw-bold">Получил:</div>
+            <div class="sign-line">
+                <span class="sign-desc">(подпись, Ф.И.О.)</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

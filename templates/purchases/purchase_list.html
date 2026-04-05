@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Закупки — AutoParts CRM{% endblock %}
+{% block navbar_title %}Закупки{% endblock %}
+
+{% block navbar_actions %}
+<a href="{% url 'purchase_create' %}" class="btn btn-primary">+ Новая закупка</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card" style="margin-bottom:16px;">
+    <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+        <select name="status" class="form-input" style="width:160px;" onchange="this.form.submit()">
+            <option value="">Все статусы</option>
+            <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Черновик</option>
+            <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>Проведена</option>
+            <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Отменена</option>
+        </select>
+        <select name="supplier" class="form-input" style="width:200px;" onchange="this.form.submit()">
+            <option value="">Все поставщики</option>
+            {% for s in suppliers %}
+            <option value="{{ s.pk }}" {% if supplier_id == s.pk|stringformat:'s' %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+        {% if status_filter or supplier_id %}
+        <a href="{% url 'purchase_list' %}" class="btn btn-ghost">Сбросить</a>
+        {% endif %}
+        <span class="text-muted" style="margin-left:auto;">{{ total_count }} записей</span>
+    </form>
+</div>
+
+{% if page_obj %}
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Поставщик</th>
+                    <th>Накладная</th>
+                    <th>Статус</th>
+                    <th style="text-align:right;">Сумма</th>
+                    <th style="text-align:right;">Долг</th>
+                    <th>Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in page_obj %}
+                <tr>
+                    <td><a href="{% url 'purchase_detail' order.pk %}" class="text-accent fw-bold">#{{ order.pk }}</a></td>
+                    <td>{{ order.supplier.name|default:"—" }}</td>
+                    <td class="text-secondary">{{ order.invoice_number|default:"—" }}</td>
+                    <td>
+                        <span class="badge" style="background:{{ order.status_color }}22;color:{{ order.status_color }};">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="text-align:right;" class="fw-bold">
+                        {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if order.debt > 0 %}
+                        <span style="color:#ef4444;">{{ order.debt|floatformat:0|intcomma }}</span>
+                        {% else %}<span class="text-muted">0</span>{% endif %}
+                    </td>
+                    <td class="text-muted">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div style="display:flex;justify-content:center;gap:8px;padding:16px;">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm">← Назад</a>
+        {% endif %}
+        <span class="text-muted" style="line-height:32px;">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
+        </svg>
+        <h3>Закупок ещё нет</h3>
+        <p>Создайте первую закупку для учёта поступлений товара</p>
+        <a href="{% url 'purchase_create' %}" class="btn btn-primary">Создать закупку</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

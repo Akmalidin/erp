@@ -1,0 +1,504 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AutoParts CRM — система учета автозапчастей">
+    <title>{% block title %}AutoParts CRM{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    {% if user.is_authenticated %}
+    <!-- ═══ APP LAYOUT ═══ -->
+    <div class="app-layout">
+        <!-- Sidebar Overlay (mobile) -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- ── Sidebar ── -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 6v6l4 2"></path>
+                        </svg>
+                    </div>
+                    <div class="sidebar-brand-text">
+                        <h2>{{ user.company_name|default:"AutoParts" }}</h2>
+                        <span>CRM SYSTEM</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Главное</div>
+                    <a href="{% url 'dashboard' %}"
+                        class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        Dashboard
+                    </a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Управление</div>
+                    <a href="{% url 'product_list' %}"
+                        class="sidebar-link {% if 'catalog' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <path d="M16 10a4 4 0 01-8 0"></path>
+                        </svg>
+                        Каталог
+                    </a>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Склад</div>
+                    <a href="{% url 'stock_list' %}"
+                        class="sidebar-link {% if 'warehouse' in request.path and 'inventory' not in request.path and 'movements' not in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z">
+                            </path>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                        </svg>
+                        Остатки
+                    </a>
+                    <a href="{% url 'inventory_list' %}"
+                        class="sidebar-link {% if 'inventory' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"></path>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                        </svg>
+                        Инвентаризация
+                    </a>
+                    <a href="{% url 'movement_history' %}"
+                        class="sidebar-link {% if 'movements' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        История движений
+                    </a>
+                    <a href="{% url 'warehouse_list' %}"
+                        class="sidebar-link {% if 'locations' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        Склады и Локации
+                    </a>
+                    <a href="{% url 'stock_transfer' %}"
+                        class="sidebar-link {% if 'transfer' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 3 21 3 21 8"></polyline>
+                            <line x1="4" y1="20" x2="21" y2="3"></line>
+                            <polyline points="21 16 21 21 16 21"></polyline>
+                            <line x1="15" y1="15" x2="21" y2="21"></line>
+                            <line x1="4" y1="4" x2="9" y2="9"></line>
+                        </svg>
+                        Переместить товар
+                    </a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Продажи</div>
+                    <a href="{% url 'order_list' %}"
+                        class="sidebar-link {% if 'orders' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Продажи
+                    </a>
+                    <a href="{% url 'pos_view' %}" class="sidebar-link {% if 'pos' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                        POS Касса
+                    </a>
+                    <a href="{% url 'client_list' %}"
+                        class="sidebar-link {% if 'crm' in request.path and 'expenses' not in request.path and 'shifts' not in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 010 7.75"></path>
+                        </svg>
+                        Клиенты
+                    </a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Закупки</div>
+                    <a href="{% url 'purchase_list' %}"
+                        class="sidebar-link {% if 'purchases' in request.path and 'suppliers' not in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="12" y1="11" x2="12" y2="17"></line>
+                            <line x1="9" y1="14" x2="15" y2="14"></line>
+                        </svg>
+                        Закупки
+                    </a>
+                    <a href="{% url 'supplier_list' %}"
+                        class="sidebar-link {% if 'suppliers' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        Поставщики
+                    </a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Финансы</div>
+                    <a href="{% url 'shift_list' %}"
+                        class="sidebar-link {% if 'shifts' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"></path>
+                        </svg>
+                        Кассовые смены
+                    </a>
+                    <a href="{% url 'expense_list' %}"
+                        class="sidebar-link {% if 'expenses' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 21v-8"></path>
+                            <path d="M17 16l-5-5-5 5"></path>
+                            <path d="M22 12A10 10 0 1112 2a10 10 0 0110 10z"></path>
+                        </svg>
+                        Расходы / Траты
+                    </a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Аналитика</div>
+                    <a href="{% url 'reports_index' %}"
+                        class="sidebar-link {% if 'reports' in request.path and 'abc' not in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                        Отчеты
+                    </a>
+                    <a href="{% url 'abc_analysis' %}"
+                        class="sidebar-link {% if 'abc' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        ABC-анализ
+                    </a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Система</div>
+                    <a href="{% url 'bulk_price_change' %}"
+                        class="sidebar-link {% if 'bulk-price' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                            <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                        Изменить цены
+                    </a>
+                    <a href="{% url 'product_import' %}" class="sidebar-link">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Импорт прайса
+                    </a>
+                    <a href="{% url 'print_price_list' %}" target="_blank" class="sidebar-link">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        Печать прайса
+                    </a>
+                    <a href="{% url 'car_matrix_list' %}"
+                        class="sidebar-link {% if 'car-matrix' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                        </svg>
+                        Матрица авто
+                    </a>
+                    <a href="{% url 'category_list' %}"
+                        class="sidebar-link {% if 'categories' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z">
+                            </path>
+                        </svg>
+                        Категории
+                    </a>
+                    <a href="{% url 'price_level_list' %}"
+                        class="sidebar-link {% if 'price-levels' in request.path %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path>
+                        </svg>
+                        Наценки
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="{% url 'profile' %}" class="sidebar-user"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; padding: 8px; border-radius: 8px; transition: background 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                    onmouseout="this.style.background='transparent'">
+                    <div class="sidebar-avatar">
+                        {{ user.first_name|default:user.email|truncatechars:1|upper }}
+                    </div>
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name">{{ user.first_name|default:user.email }}</div>
+                        <div class="sidebar-user-role">{{ user.get_role_display }}</div>
+                    </div>
+                </a>
+                <a href="{% url 'logout' %}" class="sidebar-link" style="margin-top: 8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Выйти
+                </a>
+            </div>
+        </aside>
+
+        <!-- ── Main Content ── -->
+        <div class="main-content">
+            <!-- Navbar -->
+            <header class="navbar">
+                <div class="navbar-left">
+                    <button class="hamburger" id="hamburger-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <h1 class="navbar-title">{% block navbar_title %}AutoParts CRM{% endblock %}</h1>
+                </div>
+                <div class="navbar-right" style="display:flex;align-items:center;gap:8px;">
+                    <!-- Global Search -->
+                    <form action="{% url 'global_search' %}" method="get"
+                          style="display:flex;align-items:center;background:var(--card-bg);
+                                 border:1px solid var(--border);border-radius:var(--radius-sm);
+                                 padding:0 12px;height:36px;gap:8px;transition:var(--transition);"
+                          onmouseover="this.style.borderColor='var(--border-hover)'"
+                          onmouseout="this.style.borderColor='var(--border)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" style="color:var(--text-muted);flex-shrink:0;">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" name="q" placeholder="Поиск…"
+                               style="background:transparent;border:none;outline:none;color:var(--text-primary);
+                                      font-size:13px;width:160px;font-family:inherit;"
+                               id="global-search-input">
+                    </form>
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle" title="Переключить тему"
+                            style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+                                   width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+                                   cursor:pointer;transition:var(--transition);color:var(--text-secondary);"
+                            onmouseover="this.style.borderColor='var(--border-hover)'"
+                            onmouseout="this.style.borderColor='var(--border)'">
+                        <svg id="theme-icon-dark" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                        </svg>
+                        <svg id="theme-icon-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </button>
+                    {% block navbar_actions %}{% endblock %}
+                </div>
+            </header>
+
+            <!-- Content -->
+            <main class="content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+    {% block auth_content %}{% endblock %}
+    {% endif %}
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="messages-container" id="toast-container">
+        {% for message in messages %}
+        <div class="message message-{{ message.tags }}" style="animation: slideIn 0.3s ease-out;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                {% if message.tags == 'success' %}
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                {% elif message.tags == 'error' %}
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+                {% elif message.tags == 'warning' %}
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                {% else %}
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                {% endif %}
+            </svg>
+            <span>{{ message }}</span>
+            <button onclick="this.parentElement.remove()"
+                style="background:transparent; border:none; color:inherit; cursor:pointer; margin-left:auto; font-size:18px;">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Auto-hide messages after 5 seconds
+        document.querySelectorAll('.message').forEach(msg => {
+            setTimeout(() => {
+                msg.style.opacity = '0';
+                msg.style.transform = 'translateX(100%)';
+                msg.style.transition = 'all 0.5s ease-in-out';
+                setTimeout(() => msg.remove(), 500);
+            }, 5000);
+        });
+    </script>
+    {% endif %}
+
+    <script src="{% static 'js/main.js' %}"></script>
+
+    <!-- Theme toggle script -->
+    <script>
+    (function() {
+        const LIGHT_VARS = {
+            '--bg-primary': '#f0f2f5',
+            '--bg-secondary': '#e4e8ee',
+            '--bg-tertiary': '#d8dde6',
+            '--card-bg': 'rgba(255,255,255,0.85)',
+            '--card-bg-hover': 'rgba(255,255,255,0.95)',
+            '--border': 'rgba(0,0,0,0.10)',
+            '--border-hover': 'rgba(0,0,0,0.20)',
+            '--text-primary': '#0f172a',
+            '--text-secondary': '#475569',
+            '--text-muted': '#94a3b8',
+            '--shadow': '0 2px 12px rgba(0,0,0,0.10)',
+            '--shadow-lg': '0 8px 32px rgba(0,0,0,0.12)',
+        };
+        const DARK_VARS = {
+            '--bg-primary': '#08080f',
+            '--bg-secondary': '#0d0d16',
+            '--bg-tertiary': '#12121e',
+            '--card-bg': 'rgba(255,255,255,0.04)',
+            '--card-bg-hover': 'rgba(255,255,255,0.07)',
+            '--border': 'rgba(255,255,255,0.08)',
+            '--border-hover': 'rgba(255,255,255,0.15)',
+            '--text-primary': '#f1f5f9',
+            '--text-secondary': '#94a3b8',
+            '--text-muted': '#64748b',
+            '--shadow': '0 4px 30px rgba(0,0,0,0.4)',
+            '--shadow-lg': '0 20px 60px rgba(0,0,0,0.5)',
+        };
+
+        function applyTheme(theme) {
+            const vars = theme === 'light' ? LIGHT_VARS : DARK_VARS;
+            const root = document.documentElement;
+            Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+            const dark = document.getElementById('theme-icon-dark');
+            const light = document.getElementById('theme-icon-light');
+            if (dark && light) {
+                dark.style.display = theme === 'light' ? 'none' : '';
+                light.style.display = theme === 'light' ? '' : 'none';
+            }
+        }
+
+        const saved = localStorage.getItem('crm_theme') || 'dark';
+        applyTheme(saved);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            applyTheme(localStorage.getItem('crm_theme') || 'dark');
+            const btn = document.getElementById('theme-toggle');
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    const current = localStorage.getItem('crm_theme') || 'dark';
+                    const next = current === 'dark' ? 'light' : 'dark';
+                    localStorage.setItem('crm_theme', next);
+                    applyTheme(next);
+                });
+            }
+
+            // Global search: shortcut Ctrl+K
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    const inp = document.getElementById('global-search-input');
+                    if (inp) inp.focus();
+                }
+            });
+        });
+    })();
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

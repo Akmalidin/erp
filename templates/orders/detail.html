@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Заказ #{{ order.pk }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}Заказ #{{ order.pk }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Заказ #{{ order.pk }}</h1>
+        <p class="page-subtitle">{{ order.created_at|date:"d.m.Y H:i" }}</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'order_edit' order.pk %}" class="btn btn-primary" title="Редактировать">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Редактировать
+        </a>
+        <a href="{% url 'print_receipt' order.pk %}" target="_blank" class="btn btn-secondary">
+            🖨️ Чек (80мм)
+        </a>
+        <a href="{% url 'print_invoice' order.pk %}" target="_blank" class="btn btn-secondary">
+            📄 Накладная (А4)
+        </a>
+        <a href="{% url 'order_list' %}" class="btn btn-secondary">← Все заказы</a>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+    <!-- Order Info -->
+    <div>
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Информация о заказе</h3>
+                <span class="badge badge-{{ order.status }}" style="font-size: 14px; padding: 6px 16px;">{{ order.get_status_display }}</span>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Клиент</span>
+                    <span class="detail-value">
+                        {% if order.client %}
+                        <a href="{% url 'client_detail' order.client.pk %}">{{ order.client.name }}</a>
+                        {% else %}Не указан{% endif %}
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Менеджер</span>
+                    <span class="detail-value">{{ order.user.first_name|default:order.user.email|default:"—" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Дата создания</span>
+                    <span class="detail-value">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Обновлен</span>
+                    <span class="detail-value">{{ order.updated_at|date:"d.m.Y H:i" }}</span>
+                </div>
+            </div>
+            {% if order.notes %}
+            <div class="detail-item mt-2">
+                <span class="detail-label">Примечание</span>
+                <span class="detail-value">{{ order.notes }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Order Items -->
+        <div class="card">
+            <h3 class="card-title mb-2">Позиции заказа</h3>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>OEM</th>
+                            <th>Цена</th>
+                            <th>Кол-во</th>
+                            <th>Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>
+                                {% if item.product %}
+                                <a href="{% url 'product_detail' item.product.pk %}">{{ item.product.name|truncatechars:40 }}</a>
+                                {% else %}Товар удален{% endif %}
+                            </td>
+                            <td class="text-accent">{{ item.product.oem_number|default:"—" }}</td>
+                            <td>{{ item.price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td class="fw-bold">{{ item.total|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-right fw-bold" style="font-size:16px;">Итого:</td>
+                            <td class="fw-bold" style="font-size:18px; color:var(--accent-to);">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Panel -->
+    <div>
+        <div class="card">
+            <h3 class="card-title mb-2">Сумма заказа</h3>
+            <div class="detail-value large" style="text-align: center; margin: 16px 0;">
+                {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px;">
+                <span class="text-muted">Оплачено:</span>
+                <span class="fw-bold text-success">{{ order.paid_amount|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: 4px;">
+                <span class="text-muted">Остаток (Долг):</span>
+                <span class="fw-bold {% if order.debt > 0 %}text-danger{% else %}text-muted{% endif %}">
+                    {{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
+                </span>
+            </div>
+            <p class="text-muted text-center mt-2">{{ items|length }} позиций</p>
+        </div>
+
+        <div class="card mt-2">
+            <h3 class="card-title mb-2">Изменить статус</h3>
+            <form method="post" action="{% url 'order_status_update' order.pk %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <select name="status" class="form-input">
+                        <option value="new" {% if order.status == 'new' %}selected{% endif %}>Новый</option>
+                        <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>В обработке</option>
+                        <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Завершен</option>
+                        <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Отменен</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Обновить статус</button>
+            </form>
+            {% if order.status == 'cancelled' %}
+            <p class="text-muted mt-1" style="font-size:12px;">⚠️ При отмене товары возвращаются на склад</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

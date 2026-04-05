@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}История движений — AutoParts CRM{% endblock %}
+{% block navbar_title %}История движений{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Движения товаров</h1>
+        <p class="page-subtitle">{{ total_count }} записей</p>
+    </div>
+    <a href="{% url 'stock_list' %}" class="btn btn-secondary">← Склад</a>
+</div>
+
+<form method="get" id="search-form" class="search-bar">
+    <div class="search-input-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Поиск по товару...">
+    </div>
+    <select name="type" class="filter-select">
+        <option value="">Все типы</option>
+        <option value="sale" {% if move_type == 'sale' %}selected{% endif %}>Продажа</option>
+        <option value="import" {% if move_type == 'import' %}selected{% endif %}>Поступление</option>
+        <option value="manual" {% if move_type == 'manual' %}selected{% endif %}>Ручная</option>
+        <option value="return" {% if move_type == 'return' %}selected{% endif %}>Возврат</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Найти</button>
+</form>
+
+{% if page_obj %}
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Товар</th>
+                    <th>OEM</th>
+                    <th>Тип</th>
+                    <th>Изменение</th>
+                    <th>Примечание</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in page_obj %}
+                <tr>
+                    <td class="text-muted">{{ m.created_at|date:"d.m.Y H:i" }}</td>
+                    <td><a href="{% url 'product_detail' m.product.pk %}">{{ m.product.name|truncatechars:35 }}</a></td>
+                    <td class="text-accent">{{ m.product.oem_number }}</td>
+                    <td>
+                        {% if m.movement_type == 'sale' %}<span class="badge badge-processing">Продажа</span>
+                        {% elif m.movement_type == 'import' %}<span class="badge badge-completed">Поступление</span>
+                        {% elif m.movement_type == 'return' %}<span class="badge badge-new">Возврат</span>
+                        {% else %}<span class="badge" style="background:rgba(255,255,255,0.06);color:var(--text-secondary);">Ручная</span>{% endif %}
+                    </td>
+                    <td class="{% if m.change > 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                        {% if m.change > 0 %}+{% endif %}{{ m.change }}
+                    </td>
+                    <td class="text-muted">{{ m.note|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&type={{ move_type|default:'' }}">&laquo;</a>{% endif %}
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}<span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}<a href="?page={{ num }}&q={{ query }}&type={{ move_type|default:'' }}">{{ num }}</a>{% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ query }}&type={{ move_type|default:'' }}">&raquo;</a>{% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="card"><div class="empty-state"><h3>Нет движений</h3><p>История появится после первых операций со складом</p></div></div>
+{% endif %}
+{% endblock %}

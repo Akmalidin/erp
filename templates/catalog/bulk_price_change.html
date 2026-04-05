@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}Массовое изменение цен — AutoParts CRM{% endblock %}
+{% block navbar_title %}Массовое изменение цен{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:0 auto;">
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Изменить закупочные цены</h3>
+                <p class="card-subtitle">Поднять или опустить цены сразу для всего бренда или категории</p>
+            </div>
+        </div>
+
+        <form method="post" id="price-form">
+            {% csrf_token %}
+            <!-- Filter type -->
+            <div class="form-group">
+                <label class="form-label">Фильтровать по</label>
+                <div style="display:flex;gap:12px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                                  padding:10px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);flex:1;
+                                  transition:var(--transition);" id="lbl-brand">
+                        <input type="radio" name="filter_type" value="brand" checked onchange="toggleFilter('brand')">
+                        <span>Бренд</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                                  padding:10px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);flex:1;
+                                  transition:var(--transition);" id="lbl-category">
+                        <input type="radio" name="filter_type" value="category" onchange="toggleFilter('category')">
+                        <span>Категория</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Brand select -->
+            <div class="form-group" id="brand-group">
+                <label class="form-label">Бренд</label>
+                <select name="brand" class="form-input">
+                    <option value="">— выберите бренд —</option>
+                    {% for brand in brands %}
+                    <option value="{{ brand }}">{{ brand }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Category select -->
+            <div class="form-group" id="category-group" style="display:none;">
+                <label class="form-label">Категория</label>
+                <select name="category_id" class="form-input">
+                    <option value="">— выберите категорию —</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Percent -->
+            <div class="form-group">
+                <label class="form-label">Процент изменения</label>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setPercent(-20)">-20%</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setPercent(-10)">-10%</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setPercent(-5)">-5%</button>
+                    <input type="number" name="percent" id="percent-input" class="form-input"
+                           style="width:120px;" step="0.1" placeholder="0.0" required>
+                    <span class="text-secondary">%</span>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setPercent(5)">+5%</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setPercent(10)">+10%</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setPercent(20)">+20%</button>
+                </div>
+                <p class="text-muted" style="font-size:12px;margin-top:6px;">
+                    Положительное значение = повышение цен. Отрицательное = понижение.
+                </p>
+            </div>
+
+            <!-- Preview -->
+            <div id="preview-box" style="display:none;background:var(--bg-tertiary);border-radius:var(--radius-sm);
+                 padding:12px 16px;margin-bottom:16px;border-left:3px solid var(--accent-to);">
+                <span id="preview-text"></span>
+            </div>
+
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <a href="{% url 'product_list' %}" class="btn btn-secondary">Отмена</a>
+                <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Применить изменение цен? Это действие нельзя отменить автоматически.')">
+                    Применить изменение
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleFilter(type) {
+    document.getElementById('brand-group').style.display = type === 'brand' ? '' : 'none';
+    document.getElementById('category-group').style.display = type === 'category' ? '' : 'none';
+    updatePreview();
+}
+
+function setPercent(val) {
+    document.getElementById('percent-input').value = val;
+    updatePreview();
+}
+
+function updatePreview() {
+    const pct = parseFloat(document.getElementById('percent-input').value);
+    const box = document.getElementById('preview-box');
+    const text = document.getElementById('preview-text');
+    if (isNaN(pct) || pct === 0) { box.style.display = 'none'; return; }
+    const sign = pct > 0 ? '+' : '';
+    const action = pct > 0 ? 'повышение' : 'понижение';
+    const color = pct > 0 ? 'var(--success)' : '#ef4444';
+    text.innerHTML = `Будет применено <strong style="color:${color};">${sign}${pct}%</strong> (${action} закупочной цены).<br>
+        <small>Розничные цены пересчитаются автоматически на основе наценки.</small>`;
+    box.style.display = 'block';
+}
+
+document.getElementById('percent-input').addEventListener('input', updatePreview);
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Кассовые смены — AutoParts CRM{% endblock %}
+{% block navbar_title %}Смены и Z-отчеты{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Кассовые смены</h1>
+    {% if not current_shift %}
+    <a href="{% url 'shift_open' %}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
+        Открыть новую смену
+    </a>
+    {% else %}
+    <div style="display:flex; gap:12px; align-items:center;">
+        <span class="badge badge-processing">Текущая смена #{{ current_shift.id }} ОТКРЫТА</span>
+        <a href="{% url 'shift_close' current_shift.id %}" class="btn btn-danger">Закрыть смену (Z-отчет)</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card p-0">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Смена #</th>
+                <th>Открыта</th>
+                <th>Закрыта</th>
+                <th>На начало</th>
+                <th style="text-align:right;">Итог (Нал / Безнал)</th>
+                <th>Статус</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shift in page_obj %}
+            <tr>
+                <td><strong>{{ shift.id }}</strong></td>
+                <td class="text-muted">{{ shift.opened_at|date:"d.m.Y H:i" }}</td>
+                <td class="text-muted">{{ shift.closed_at|date:"d.m.Y H:i"|default:"—" }}</td>
+                <td>{{ shift.initial_cash|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                <td style="text-align:right;">
+                    {% if not shift.is_open %}
+                    <span class="text-accent fw-bold">{{ shift.actual_cash|floatformat:0|intcomma }}</span> / 
+                    <span class="text-processing fw-bold">{{ shift.actual_card|floatformat:0|intcomma }}</span> {{ user.currency_symbol }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if shift.is_open %}badge-processing{% else %}badge-completed{% endif %}">
+                        {% if shift.is_open %}Открыта{% else %}Закрыта{% endif %}
+                    </span>
+                </td>
+                <td>
+                    {% if shift.is_open %}
+                    <a href="{% url 'shift_close' shift.id %}" class="btn btn-secondary btn-sm">Закрыть</a>
+                    {% else %}
+                    <a href="{% url 'shift_close' shift.id %}" class="btn btn-link btn-sm">Детали</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted p-5">Смен пока нет</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination mt-3">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary">Назад</a>
+    {% endif %}
+    <span class="p-2">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary">Вперед</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

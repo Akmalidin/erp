@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}Удалить клиента — AutoParts CRM{% endblock %}
+{% block navbar_title %}Удаление{% endblock %}
+
+{% block content %}
+<div class="card confirm-card">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="margin-bottom: 16px;">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    <h2>Удалить клиента?</h2>
+    <p>Вы уверены, что хотите удалить «{{ client.name }}»?<br>Все связанные данные будут сохранены.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="confirm-actions">
+            <a href="{% url 'client_detail' client.pk %}" class="btn btn-secondary">Отмена</a>
+            <button type="submit" class="btn btn-danger">Удалить</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

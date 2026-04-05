@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Импорт прайса — AutoParts CRM{% endblock %}
+{% block navbar_title %}Импорт прайса{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Импорт прайс-листа</h1>
+    <a href="{% url 'product_list' %}" class="btn btn-secondary">← Каталог</a>
+</div>
+
+<div class="import-info">
+    <h3>Инструкция по импорту</h3>
+    <ul>
+        <li>Поддерживаемые форматы: <strong>.xlsx</strong>, <strong>.xls</strong>, <strong>.csv</strong></li>
+        <li>Столбцы автоматически определяются по названиям</li>
+        <li>Обязательный столбец: <strong>Название</strong> (name / наименование)</li>
+        <li>OEM, Артикул, Цена, Остаток, Бренд, Категория — определяются автоматически</li>
+        <li>Если в файле есть OEM номер, товары обновляются по нему</li>
+        <li>Если OEM не указан, создается новый товар</li>
+    </ul>
+</div>
+
+<div class="card" style="max-width: 600px;">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label class="form-label" for="import-file">Выберите файл</label>
+            {{ form.file }}
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" style="margin-top: 16px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Загрузить и импортировать
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Каталог — AutoParts CRM{% endblock %}
+{% block navbar_title %}Каталог товаров{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Каталог</h1>
+        <p class="page-subtitle">{{ total_count }} товаров</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'price_level_list' %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+            Наценки
+        </a>
+        <a href="{% url 'product_import' %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Импорт
+        </a>
+        <a href="{% url 'product_create' %}" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Добавить товар
+        </a>
+        <a href="{% url 'car_matrix_list' %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            Матрица авто
+        </a>
+        <a href="{% url 'product_bulk_edit' %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Массовая правка
+        </a>
+        <a href="{% url 'bulk_price_change' %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline></svg>
+            Изменить цены
+        </a>
+        <button type="button" class="btn btn-secondary" id="print-tags-btn" style="display:none;"
+                onclick="printSelectedTags()">
+            🏷 Печать ценников (<span id="selected-count">0</span>)
+        </button>
+    </div>
+</div>
+
+<!-- Search & Filters -->
+<form method="get" id="search-form" class="search-bar">
+    <div class="search-input-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Поиск по OEM, артикулу, названию..." id="catalog-search">
+    </div>
+    <select name="category" class="filter-select" id="catalog-category-filter">
+        <option value="">Все категории</option>
+        {% for cat in categories %}
+        <option value="{{ cat.pk }}" {% if category_id == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+    </select>
+    <select name="stock" class="filter-select" id="catalog-stock-filter">
+        <option value="">Все остатки</option>
+        <option value="in" {% if stock_filter == 'in' %}selected{% endif %}>В наличии</option>
+        <option value="low" {% if stock_filter == 'low' %}selected{% endif %}>Мало</option>
+        <option value="out" {% if stock_filter == 'out' %}selected{% endif %}>Нет в наличии</option>
+    </select>
+    <select name="sort" class="filter-select" id="catalog-sort">
+        <option value="-created_at" {% if sort == '-created_at' %}selected{% endif %}>Новые</option>
+        <option value="name" {% if sort == 'name' %}selected{% endif %}>По названию</option>
+        <option value="-price_purchase" {% if sort == '-price_purchase' %}selected{% endif %}>Цена ↓</option>
+        <option value="price_purchase" {% if sort == 'price_purchase' %}selected{% endif %}>Цена ↑</option>
+        <option value="stock_quantity" {% if sort == 'stock_quantity' %}selected{% endif %}>Остаток ↑</option>
+        <option value="-stock_quantity" {% if sort == '-stock_quantity' %}selected{% endif %}>Остаток ↓</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Найти</button>
+</form>
+
+<!-- Products Table -->
+{% if page_obj %}
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:36px;">
+                        <input type="checkbox" id="select-all" title="Выбрать все"
+                               style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent-to);">
+                    </th>
+                    <th>OEM</th>
+                    <th>Артикул</th>
+                    <th>Название</th>
+                    <th>Категория</th>
+                    <th>Закупочная</th>
+                    <th>{% if default_level %}{{ default_level.name }}{% else %}Розничная{% endif %}</th>
+                    <th>Остаток</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in page_obj %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="product-cb" value="{{ product.pk }}"
+                               style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent-to);">
+                    </td>
+                    <td class="fw-bold text-accent">{{ product.oem_number }}</td>
+                    <td>{{ product.part_number|default:"—" }}</td>
+                    <td>
+                        <a href="{% url 'product_detail' product.pk %}">{{ product.name|truncatechars:50 }}</a>
+                    </td>
+                    <td class="text-muted">{{ product.category.name|default:"—" }}</td>
+                    <td class="text-muted">{{ product.price_purchase|floatformat:0|intcomma }}</td>
+                    <td class="fw-bold">{{ product.price_retail|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td>
+                        {% if product.stock_quantity == 0 %}
+                            <span class="badge badge-out">Нет</span>
+                        {% elif product.stock_quantity <= 5 %}
+                            <span class="badge badge-low">{{ product.stock_quantity }} шт</span>
+                        {% else %}
+                            <span class="badge badge-ok">{{ product.stock_quantity }} шт</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="table-actions" style="display: flex; gap: 8px;">
+                            <form action="{% url 'quick_sale' product.pk %}" method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="table-link" style="color:var(--success); background:none; border:none; padding:0; display:flex; cursor:pointer;" title="Быстрая продажа 1 шт.">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                                </button>
+                            </form>
+                            <a href="{% url 'product_detail' product.pk %}" class="table-link" title="Просмотр">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </a>
+                            <a href="{% url 'product_edit' product.pk %}" class="table-link" title="Редактировать">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </a>
+                            <a href="{% url 'print_barcode' product.pk %}" target="_blank" class="table-link" title="Печать штрихкода (58x40)">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2"></path><path d="M17 3h2a2 2 0 012 2v2"></path><path d="M21 17v2a2 2 0 01-2 2h-2"></path><path d="M7 21H5a2 2 0 01-2-2v-2"></path><rect x="7" y="7" width="10" height="10"></rect></svg>                            
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&category={{ category_id|default:'' }}&stock={{ stock_filter|default:'' }}&sort={{ sort }}">&laquo;</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}&q={{ query }}&category={{ category_id|default:'' }}&stock={{ stock_filter|default:'' }}&sort={{ sort }}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&category={{ category_id|default:'' }}&stock={{ stock_filter|default:'' }}&sort={{ sort }}">&raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+        <h3>Каталог пуст</h3>
+        <p>Добавьте первый товар или импортируйте прайс-лист</p>
+        <div class="d-flex gap-2" style="justify-content: center;">
+            <a href="{% url 'product_create' %}" class="btn btn-primary">Добавить товар</a>
+            <a href="{% url 'product_import' %}" class="btn btn-secondary">Импорт</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Checkboxes & bulk print
+const selectAll = document.getElementById('select-all');
+const printBtn = document.getElementById('print-tags-btn');
+const countEl = document.getElementById('selected-count');
+
+function getChecked() {
+    return Array.from(document.querySelectorAll('.product-cb:checked')).map(cb => cb.value);
+}
+
+function updatePrintBtn() {
+    const ids = getChecked();
+    countEl.textContent = ids.length;
+    printBtn.style.display = ids.length > 0 ? '' : 'none';
+}
+
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        document.querySelectorAll('.product-cb').forEach(cb => cb.checked = this.checked);
+        updatePrintBtn();
+    });
+}
+
+document.querySelectorAll('.product-cb').forEach(cb => {
+    cb.addEventListener('change', updatePrintBtn);
+});
+
+function printSelectedTags() {
+    const ids = getChecked();
+    if (!ids.length) return;
+    const url = '{% url "print_price_tags" %}?' + ids.map(id => 'ids=' + id).join('&');
+    window.open(url, '_blank');
+}
+
+// Barcode scanner focus — on catalog page press any char to auto-focus search
+document.addEventListener('keydown', function(e) {
+    const search = document.getElementById('catalog-search');
+    if (!search) return;
+    if (document.activeElement === search) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length === 1 && /[\w\d]/.test(e.key)) {
+        search.focus();
+    }
+});
+</script>
+{% endblock %}

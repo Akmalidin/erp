@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Чек #{{ order.pk }}</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #000;
+            width: 80mm; /* Standard thermal printer width */
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .border-bottom { border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 5px; }
+        .mb-2 { margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; vertical-align: top; padding: 2px 0; }
+        .price-col { width: 25%; text-align: right; }
+        @media print {
+            body { padding: 0; }
+            @page { margin: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        }
+    </script>
+</head>
+<body>
+    <div class="text-center border-bottom mb-2">
+        <h2 style="margin: 5px 0; font-size: 18px;">{{ request.user.company_name|default:"AutoParts" }}</h2>
+        <div>Товарный чек №{{ order.pk }}</div>
+        <div>От: {{ order.created_at|date:"d.m.Y H:i" }}</div>
+    </div>
+    
+    <div class="border-bottom mb-2">
+        <div>Клиент: {{ order.client.name|default:"Розничный покупатель" }}</div>
+        {% if order.client.phone %}<div>Тел: {{ order.client.phone }}</div>{% endif %}
+    </div>
+
+    <table class="border-bottom mb-2">
+        {% for item in order.items.all %}
+        <tr>
+            <td colspan="2">
+                {{ item.product.name }}
+                <div style="font-size: 11px; margin-top:2px;">{{ item.product.oem_number }}</div>
+            </td>
+        </tr>
+        <tr>
+            <td>{{ item.quantity }} x {{ item.price|floatformat:0 }}</td>
+            <td class="price-col fw-bold">{{ item.total_price|default:item.price }} {{ request.user.currency_symbol }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <div class="text-right fw-bold" style="font-size: 16px;">
+        ИТОГО: {{ order.total_price|floatformat:0 }} {{ request.user.currency_symbol }}
+    </div>
+
+    <div class="text-center" style="margin-top: 20px; font-size: 12px;">
+        Спасибо за покупку!<br>
+        Ждем Вас снова!
+    </div>
+
+    <div class="no-print" style="margin-top: 30px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Печать</button>
+        <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; margin-left: 10px;">Закрыть</button>
+    </div>
+</body>
+</html>

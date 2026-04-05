@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'product_list' %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<div class="card" style="max-width: 800px;">
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #ef4444; font-size: 13px;">
+            {% for field in form %}{% for error in field.errors %}<div><strong>{{ field.label }}:</strong> {{ error }}</div>{% endfor %}{% endfor %}
+            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label" for="product-oem">OEM номер *</label>
+                {{ form.oem_number }}
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="product-partnum">Артикул</label>
+                {{ form.part_number }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="product-name">Название *</label>
+            {{ form.name }}
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label" for="product-category">Категория</label>
+                {{ form.category }}
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="product-brand">Бренд</label>
+                {{ form.brand }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="product-desc">Описание</label>
+            {{ form.description }}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="product-price-purchase">Закупочная цена</label>
+            {{ form.price_purchase }}
+            <p class="text-muted" style="font-size: 12px; margin-top: 4px;">Цена из прайс-листа. Цены продажи рассчитываются автоматически через <a href="{% url 'price_level_list' %}">уровни наценок</a></p>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label" for="product-stock">Остаток</label>
+                {{ form.stock_quantity }}
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="product-minstock">Мин. остаток</label>
+                {{ form.min_stock }}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label" for="product-location">Место хранения</label>
+                {{ form.location }}
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 28px;">
+                {{ form.is_active }}
+                <label for="product-active" style="cursor: pointer; font-size: 14px;">Активен</label>
+            </div>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 12px;">
+            <button type="submit" class="btn btn-primary btn-lg">Сохранить</button>
+            <a href="{% url 'product_list' %}" class="btn btn-secondary btn-lg">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

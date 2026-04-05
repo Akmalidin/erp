@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import os; os.makedirs\\('purchases/migrations', exist_ok=True\\); open\\('purchases/migrations/__init__.py', 'w'\\).close\\(\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import os; os.makedirs\\('c:/Users/VERTEX/Desktop/program/purchases/migrations', exist_ok=True\\); open\\('c:/Users/VERTEX/Desktop/program/purchases/migrations/__init__.py', 'w'\\).close\\(\\); print\\('OK'\\)\")",
+      "Bash(python \"c:/Users/VERTEX/Desktop/program/manage.py\" help)",
+      "Bash(python manage.py migrate --run-syncdb)",
+      "Bash(python manage.py check)",
+      "Bash(python manage.py show_urls)",
+      "Bash(python manage.py shell -c \"from django.urls import reverse; tests = ['purchase_list','purchase_create','supplier_list','bulk_price_change','abc_analysis','global_search','backup_db','print_price_tags']; [print\\(f'{n}: {reverse\\(n\\)}'\\) for n in tests]\")",
+      "Bash(del \"c:\\\\Users\\\\VERTEX\\\\Desktop\\\\program\\\\db.sqlite3\")",
+      "Bash(python -c \"import os; path='c:/Users/VERTEX/Desktop/program/db.sqlite3'; os.remove\\(path\\) if os.path.exists\\(path\\) else print\\('not found'\\); print\\('done'\\)\")",
+      "Bash(python manage.py migrate)",
+      "Bash(python -c \"import os; print\\(os.path.exists\\('c:/Users/VERTEX/Desktop/program/.git'\\)\\)\")"
+    ]
+  }
+}

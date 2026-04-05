@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Настройка импорта — AutoParts CRM{% endblock %}
+{% block navbar_title %}Настройка столбцов импорта{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Связывание полей</h1>
+        <p class="page-subtitle">Укажите, в каком столбце файла находятся данные для импорта</p>
+    </div>
+    <a href="{% url 'product_import' %}" class="btn btn-secondary">Отмена</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Файл: <span class="text-accent">{{ original_name }}</span></h3>
+        <span class="badge badge-new">Найдено строк: {{ total_rows }}</span>
+    </div>
+
+    <!-- Preview table to help user understand the columns -->
+    <div style="margin-bottom: 24px; overflow-x: auto;">
+        <p class="text-muted mb-1" style="font-size: 13px;">Предпросмотр первых строк файла:</p>
+        <table class="data-table" style="font-size: 13px;">
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                    <th style="padding: 8px; border: 1px solid rgba(255,255,255,0.1);">{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                <tr>
+                    {% for cell in row %}
+                    <td style="padding: 6px 8px; border: 1px solid rgba(255,255,255,0.05); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ cell }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form method="post" action="{% url 'product_import_process' %}">
+    {% csrf_token %}
+    <div class="card">
+        <div class="card-header border-bottom pb-2 mb-3">
+            <h3 class="card-title">Укажите столбцы</h3>
+            <p class="text-muted" style="font-size: 13px;">Выберите, какому столбцу в таблице CRM соответствует каждый столбец из файла.</p>
+        </div>
+
+        <div class="mapping-grid" style="display: grid; gap: 20px;">
+            {% for field in fields %}
+            <div class="mapping-row" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <div style="flex: 1;">
+                    <div class="fw-bold" style="font-size: 14px; color: {% if field.required %}var(--accent-to){% else %}var(--text-primary){% endif %};">
+                        {{ field.label }}
+                    </div>
+                    <div class="text-muted" style="font-size: 12px;">{{ field.description }}</div>
+                </div>
+                <div style="flex: 1; max-width: 400px;">
+                    <select name="map_{{ field.key }}" class="form-input" {% if field.required %}required{% endif %}>
+                        <option value="-1">— Пропустить это поле —</option>
+                        {% for col in columns %}
+                            <option value="{{ forloop.counter0 }}" 
+                            {% for automap_key, automap_idx in auto_map.items %}
+                                {% if automap_key == field.key and automap_idx == forloop.parentloop.counter0 %}selected{% endif %}
+                            {% endfor %}>
+                                {{ col }} (Столбец {{ forloop.counter }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+            <a href="{% url 'product_import' %}" class="btn btn-secondary">Отменить импорт</a>
+            <button type="submit" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Запустить импорт
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Поставщики — AutoParts CRM{% endblock %}
+{% block navbar_title %}Поставщики{% endblock %}
+
+{% block navbar_actions %}
+<button class="btn btn-primary" onclick="document.getElementById('add-supplier-modal').style.display='flex'">
+    + Добавить поставщика
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Search -->
+<div class="card" style="margin-bottom:16px;">
+    <form method="get" style="display:flex;gap:12px;align-items:center;">
+        <input type="text" name="q" value="{{ query }}" placeholder="Поиск по названию или телефону…"
+               class="form-input" style="flex:1;">
+        <button type="submit" class="btn btn-secondary">Найти</button>
+        {% if query %}<a href="{% url 'supplier_list' %}" class="btn btn-ghost">✕</a>{% endif %}
+    </form>
+</div>
+
+{% if suppliers %}
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Контакт</th>
+                    <th>Телефон</th>
+                    <th>Email</th>
+                    <th style="text-align:right;">Долг перед ним</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in suppliers %}
+                <tr>
+                    <td class="fw-bold">{{ s.name }}</td>
+                    <td class="text-secondary">{{ s.contact_name|default:"—" }}</td>
+                    <td>{{ s.phone|default:"—" }}</td>
+                    <td>{{ s.email|default:"—" }}</td>
+                    <td style="text-align:right;">
+                        {% if s.debt > 0 %}
+                        <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;">
+                            {{ s.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">0</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <a href="{% url 'supplier_edit' s.pk %}" class="btn btn-ghost btn-sm">Изменить</a>
+                        <form method="post" action="{% url 'supplier_delete' s.pk %}" style="display:inline;"
+                              onsubmit="return confirm('Удалить поставщика?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        <h3>Поставщики не добавлены</h3>
+        <p>Добавьте поставщиков, чтобы вести учёт закупок</p>
+        <button class="btn btn-primary" onclick="document.getElementById('add-supplier-modal').style.display='flex'">
+            + Добавить поставщика
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- Add Supplier Modal -->
+<div id="add-supplier-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div class="card" style="width:100%;max-width:520px;max-height:90vh;overflow-y:auto;">
+        <div class="card-header">
+            <h3 class="card-title">Новый поставщик</h3>
+            <button onclick="document.getElementById('add-supplier-modal').style.display='none'"
+                    class="btn btn-ghost btn-sm">✕</button>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Название *</label>
+                {{ form.name }}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                    <label class="form-label">Контактное лицо</label>
+                    {{ form.contact_name }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Телефон</label>
+                    {{ form.phone }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                {{ form.email }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Адрес</label>
+                {{ form.address }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Заметки</label>
+                {{ form.notes }}
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;">
+                <button type="button" class="btn btn-secondary"
+                        onclick="document.getElementById('add-supplier-modal').style.display='none'">Отмена</button>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

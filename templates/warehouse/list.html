@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Склад — AutoParts CRM{% endblock %}
+{% block navbar_title %}Склад{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Остатки на складе</h1>
+        <p class="page-subtitle">{{ total_count }} позиций</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-primary" onclick="openBulkAddModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Массовое пополнение
+        </button>
+        <a href="{% url 'movement_history' %}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 102.13-9.36L1 10"></path></svg>
+            История движений
+        </a>
+    </div>
+</div>
+
+<!-- Search & Filters -->
+<form method="get" id="search-form" class="search-bar">
+    <div class="search-input-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Поиск по OEM, названию...">
+    </div>
+    <select name="stock" class="filter-select">
+        <option value="">Все</option>
+        <option value="in" {% if stock_filter == 'in' %}selected{% endif %}>В наличии</option>
+        <option value="low" {% if stock_filter == 'low' %}selected{% endif %}>Мало (&le;5)</option>
+        <option value="out" {% if stock_filter == 'out' %}selected{% endif %}>Нет в наличии</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Найти</button>
+</form>
+
+{% if page_obj %}
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>OEM</th>
+                    <th>Название</th>
+                    <th>Место хранения</th>
+                    <th>Остаток</th>
+                    <th>Мин. остаток</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in page_obj %}
+                <tr>
+                    <td class="fw-bold text-accent">{{ product.oem_number }}</td>
+                    <td><a href="{% url 'product_detail' product.pk %}">{{ product.name|truncatechars:40 }}</a></td>
+                    <td class="text-muted">{{ product.location|default:"—" }}</td>
+                    <td>
+                        {% if product.stock_quantity == 0 %}
+                            <span class="badge badge-out">0 шт</span>
+                        {% elif product.stock_quantity <= 5 %}
+                            <span class="badge badge-low">{{ product.stock_quantity }} шт</span>
+                        {% else %}
+                            <span class="badge badge-ok">{{ product.stock_quantity }} шт</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ product.min_stock }}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="openStockModal({{ product.pk }}, '{{ product.name|escapejs }}', {{ product.stock_quantity }})">
+                            Корректировка
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&stock={{ stock_filter|default:'' }}">&laquo;</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}&q={{ query }}&stock={{ stock_filter|default:'' }}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&stock={{ stock_filter|default:'' }}">&raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <h3>Склад пуст</h3>
+        <p>Добавьте товары в каталог</p>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- Stock Adjustment Modal -->
+<div id="stock-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div class="card" style="max-width:400px; width:100%; margin:20px;">
+        <h3 class="card-title mb-2">Корректировка остатка</h3>
+        <p class="text-muted mb-2" id="modal-product-name"></p>
+        <form method="post" id="stock-adjust-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Новое количество</label>
+                <input type="number" name="quantity" id="modal-quantity" class="form-input" min="0" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Примечание</label>
+                <input type="text" name="note" class="form-input" placeholder="Причина корректировки" value="Ручная корректировка">
+            </div>
+            <div style="display:flex; gap:12px; margin-top:16px;">
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary" onclick="closeStockModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Add Modal -->
+<div id="bulk-add-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div class="card" style="max-width:400px; width:100%; margin:20px;">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 class="card-title" style="margin:0;">Массовое пополнение</h3>
+            <button class="btn-close" onclick="closeBulkAddModal()" style="background:none; border:none; cursor:pointer; font-size:24px; color:var(--text-muted);">&times;</button>
+        </div>
+        <div class="alert alert-info mb-3" style="font-size: 0.9rem;">
+            Количество будет добавлено к <strong>{{ total_count }}</strong> товарам (с учетом текущих фильтров).
+        </div>
+        <form method="post" action="{% url 'stock_bulk_add' %}?q={{ query }}&stock={{ stock_filter }}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Сколько единиц добавить?</label>
+                <input type="number" name="quantity" class="form-input" min="1" value="1" required autofocus>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Примечание</label>
+                <input type="text" name="note" class="form-input" placeholder="Напр: Приход товара" value="Массовое пополнение">
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;">Применить ко всем</button>
+                <button type="button" class="btn btn-secondary" onclick="closeBulkAddModal()">Отмена</button>
+            </div>
+        </form>
+</div>
+
+<script>
+    function openStockModal(pk, name, currentQty) {
+        const modal = document.getElementById('stock-modal');
+        const form = document.getElementById('stock-adjust-form');
+        const nameEl = document.getElementById('modal-product-name');
+        const qtyInput = document.getElementById('modal-quantity');
+
+        // Set form action dynamically
+        form.action = `/warehouse/adjust/${pk}/`;
+        nameEl.textContent = name;
+        qtyInput.value = currentQty;
+        
+        modal.style.display = 'flex';
+    }
+
+    function closeStockModal() {
+        document.getElementById('stock-modal').style.display = 'none';
+    }
+
+    function openBulkAddModal() {
+        document.getElementById('bulk-add-modal').style.display = 'flex';
+    }
+
+    function closeBulkAddModal() {
+        document.getElementById('bulk-add-modal').style.display = 'none';
+    }
+
+    // Close on click outside
+    window.onclick = function(event) {
+        const stockModal = document.getElementById('stock-modal');
+        const bulkModal = document.getElementById('bulk-add-modal');
+        if (event.target == stockModal) closeStockModal();
+        if (event.target == bulkModal) closeBulkAddModal();
+    }
+</script>
+{% endblock %}

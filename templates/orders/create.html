@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block title %}Новый заказ — AutoParts CRM{% endblock %}
+{% block navbar_title %}Новый заказ{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Создание заказа</h1>
+    <a href="{% url 'order_list' %}" class="btn btn-secondary">← Все заказы</a>
+</div>
+
+<form method="post" id="order-form">
+    {% csrf_token %}
+    <input type="hidden" name="items_json" id="items-json" value="[]">
+
+    <div class="card mb-3">
+        <h3 class="card-title mb-2">Данные заказа</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label" for="order-client">Клиент</label>
+                <select name="client" class="form-input" id="order-client">
+                    <option value="">— Выберите клиента —</option>
+                    {% for client in clients %}
+                    <option value="{{ client.pk }}">{{ client.name }}{% if client.company_name %} ({{ client.company_name }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="order-price-level">Уровень цены</label>
+                <select class="form-input" id="order-price-level">
+                    {% for level in price_levels %}
+                    <option value="{{ level.pk }}" data-markup="{{ level.markup_percent }}" {% if level.is_default %}selected{% endif %}>
+                        {{ level.name }} (+{{ level.markup_percent }}%)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="flex: 1;">
+                <label class="form-label" for="order-notes">Примечание</label>
+                <textarea name="notes" class="form-input" rows="1" placeholder="Примечание..." id="order-notes"></textarea>
+            </div>
+            <div class="form-group" style="width: 280px;">
+                <label class="form-label" for="order-paid">Оплачено ({{ user.currency_symbol }})</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="number" name="paid_amount" id="order-paid" class="form-input" value="0" step="0.01" min="0">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="window._payFull()" style="white-space: nowrap;">Всё</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <h3 class="card-title">Позиции заказа</h3>
+        </div>
+
+        <!-- Product Search -->
+        <div class="form-group">
+            <label class="form-label">Поиск товара</label>
+            <div class="search-input-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" class="search-input" id="product-search" placeholder="Введите OEM, артикул или название..." autocomplete="off">
+            </div>
+            <div id="search-results" class="search-results-dropdown" style="display: none;"></div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="table-container" id="items-table-container" style="display: none;">
+            <table class="data-table" id="order-items-table">
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th>Закуп.</th>
+                        <th>Цена продажи</th>
+                        <th>Кол-во</th>
+                        <th>Сумма</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="order-items-body">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="order-total">
+            Итого: <span id="order-grand-total">0 {{ user.currency_symbol }}</span>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 12px;">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Создать заказ
+        </button>
+        <button type="submit" name="quick_sale" value="1" class="btn btn-success btn-lg">
+            ⚡ Быстрая продажа (Завершить)
+        </button>
+        <a href="{% url 'order_list' %}" class="btn btn-secondary btn-lg">Отмена</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const orderItems = [];
+    let searchTimeout = null;
+    let currentSearchResults = [];
+    const searchInput = document.getElementById('product-search');
+    const searchResults = document.getElementById('search-results');
+    const tbody = document.getElementById('order-items-body');
+    const tableContainer = document.getElementById('items-table-container');
+    const itemsJson = document.getElementById('items-json');
+    const grandTotal = document.getElementById('order-grand-total');
+    const priceLevelSelect = document.getElementById('order-price-level');
+
+    // Product search
+    const performSearch = (q) => {
+        clearTimeout(searchTimeout);
+        if (q.length < 1) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        searchTimeout = setTimeout(() => {
+            fetch(`/orders/api/products/?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => {
+                    currentSearchResults = data.results;
+                    if (data.results.length === 0) {
+                        searchResults.innerHTML = '<div class="search-result-item text-muted">Ничего не найдено</div>';
+                    } else {
+                        searchResults.innerHTML = data.results.map(p => {
+                            const levelId = priceLevelSelect.value;
+                            let price = p.price_default;
+                            if (p.prices && p.prices[levelId]) {
+                                price = p.prices[levelId].price;
+                            }
+                            return `<div class="search-result-item" data-product-id="${p.id}">
+                                <div class="search-result-main">
+                                    <span class="text-accent fw-bold">${p.oem_number}</span>
+                                    <span>${p.name}</span>
+                                </div>
+                                <div class="search-result-meta">
+                                    <span>${parseFloat(price).toLocaleString()} {{ user.currency_symbol }}</span>
+                                    <span class="badge ${p.stock_quantity > 0 ? 'badge-processing' : 'badge-cancelled'}" style="font-size: 10px;">остаток: ${p.stock_quantity}</span>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    }
+                    searchResults.style.display = 'block';
+                });
+        }, 300);
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            performSearch(this.value.trim());
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length > 0) {
+                performSearch(this.value.trim());
+            }
+        });
+
+        // Click on search result
+        searchResults.addEventListener('click', function(e) {
+            const item = e.target.closest('.search-result-item');
+            if (!item || !item.dataset.productId) return;
+            const productId = parseInt(item.dataset.productId);
+            const product = currentSearchResults.find(p => p.id === productId);
+            if (product) {
+                addOrderItem(product);
+            }
+            searchInput.value = '';
+            searchResults.style.display = 'none';
+        });
+
+        // Close search results on click outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+    }
+
+    // Price level change — recalculate all prices
+    if (priceLevelSelect) {
+        priceLevelSelect.addEventListener('change', function() {
+            recalculatePrices();
+        });
+    }
+
+    function addOrderItem(product) {
+        // Check if already added
+        const existing = orderItems.find(i => i.product_id === product.id);
+        if (existing) {
+            existing.quantity += 1;
+            renderItems();
+            return;
+        }
+
+        const levelId = priceLevelSelect.value;
+        let price = parseFloat(product.price_default);
+        if (product.prices && product.prices[levelId]) {
+            price = parseFloat(product.prices[levelId].price);
+        }
+
+        orderItems.push({
+            product_id: product.id,
+            oem_number: product.oem_number,
+            name: product.name,
+            price_purchase: parseFloat(product.price_purchase),
+            price: price,
+            prices: product.prices,
+            quantity: 1,
+            max_stock: product.stock_quantity,
+        });
+        renderItems();
+    }
+
+    function recalculatePrices() {
+        const levelId = priceLevelSelect.value;
+        orderItems.forEach(item => {
+            if (item.prices && item.prices[levelId]) {
+                item.price = parseFloat(item.prices[levelId].price);
+            }
+        });
+        renderItems();
+    }
+
+    function renderItems() {
+        if (orderItems.length === 0) {
+            tableContainer.style.display = 'none';
+            tbody.innerHTML = '';
+            updateTotal();
+            return;
+        }
+
+        tableContainer.style.display = 'block';
+        tbody.innerHTML = orderItems.map((item, idx) => `
+            <tr>
+                <td>
+                    <div class="fw-bold">${item.name}</div>
+                    <div class="text-muted" style="font-size:12px;">${item.oem_number}</div>
+                </td>
+                <td class="text-muted">${item.price_purchase.toLocaleString()}</td>
+                <td>
+                    <input type="number" class="form-input" value="${item.price}" step="0.01" min="0"
+                           style="width:120px;" onchange="window._updateItemPrice(${idx}, this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-input" value="${item.quantity}" min="1" max="${item.max_stock}"
+                           style="width:80px;" onchange="window._updateItemQty(${idx}, this.value)">
+                </td>
+                <td class="fw-bold text-accent">${(item.price * item.quantity).toLocaleString()} {{ user.currency_symbol }}</td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="window._removeItem(${idx})">✕</button>
+                </td>
+            </tr>
+        `).join('');
+        updateTotal();
+    }
+
+    function updateTotal() {
+        const total = orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        grandTotal.textContent = total.toLocaleString() + ' {{ user.currency_symbol }}';
+        itemsJson.value = JSON.stringify(orderItems.map(i => ({
+            product_id: i.product_id,
+            quantity: i.quantity,
+            price: i.price,
+        })));
+    }
+
+    // Expose to inline handlers
+    window._updateItemPrice = function(idx, val) {
+        orderItems[idx].price = parseFloat(val) || 0;
+        renderItems();
+    };
+    window._updateItemQty = function(idx, val) {
+        const qty = parseInt(val) || 1;
+        orderItems[idx].quantity = Math.min(qty, orderItems[idx].max_stock);
+        renderItems();
+    };
+    window._removeItem = function(idx) {
+        orderItems.splice(idx, 1);
+        renderItems();
+    };
+    window._payFull = function() {
+        const total = orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        document.getElementById('order-paid').value = total.toFixed(2);
+    };
+})();
+</script>
+{% endblock %}
