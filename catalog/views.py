@@ -96,22 +96,34 @@ def product_detail(request, pk):
 
 @login_required
 def print_price_list(request):
-    """View to generate a printable price list with category selection."""
+    """View to generate a printable price list with category and price level selection."""
     selected_categories = request.GET.getlist('categories')
     include_no_category = request.GET.get('no_category') == '1'
-    
+    price_level_id = request.GET.get('price_level')
+
     # If no selection made yet, show selection page
     if not selected_categories and not include_no_category and 'all' not in request.GET:
         categories = Category.objects.filter(user=request.user).annotate(product_count=models.Count('products'))
         no_cat_count = Product.objects.filter(user=request.user, category__isnull=True).count()
+        price_levels = PriceLevel.objects.filter(user=request.user).order_by('order', 'name')
+        default_level = PriceLevel.get_default(request.user)
         return render(request, 'catalog/print_select.html', {
             'categories': categories,
             'no_cat_count': no_cat_count,
+            'price_levels': price_levels,
+            'default_level': default_level,
         })
 
-    # Fetch selected categories
+    # Resolve selected price level
+    selected_level = None
+    if price_level_id:
+        selected_level = PriceLevel.objects.filter(pk=price_level_id, user=request.user).first()
+    if not selected_level:
+        selected_level = PriceLevel.get_default(request.user)
+
+    # Fetch products
     products_qs = Product.objects.filter(user=request.user, is_active=True)
-    
+
     if 'all' in request.GET:
         categories = Category.objects.filter(user=request.user).prefetch_related(
             models.Prefetch('products', queryset=products_qs)
@@ -123,10 +135,25 @@ def print_price_list(request):
         )
         uncategorized = products_qs.filter(category__isnull=True) if include_no_category else []
 
+    # Attach calculated price to each product
+    def attach_prices(qs):
+        result = list(qs)
+        for p in result:
+            p.display_price = selected_level.calculate_price(p.price_purchase) if selected_level else p.price_purchase
+        return result
+
+    categories_with_prices = []
+    for cat in categories:
+        cat.products_list = attach_prices(cat.products.all())
+        categories_with_prices.append(cat)
+
+    uncategorized_list = attach_prices(uncategorized) if uncategorized else []
+
     context = {
-        'categories': categories,
-        'uncategorized': uncategorized,
+        'categories': categories_with_prices,
+        'uncategorized': uncategorized_list,
         'date': timezone.now(),
+        'selected_level': selected_level,
     }
     return render(request, 'catalog/print_price.html', context)
 

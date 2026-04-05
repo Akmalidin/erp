@@ -78,13 +78,13 @@
     <div class="header">
         <div>
             <div class="company-name">{{ request.user.company_name|default:"AutoParts" }}</div>
-            <div class="price-title">Прайс-лист товаров</div>
+            <div class="price-title">Прайс-лист товаров{% if selected_level %} — {{ selected_level.name }}{% endif %}</div>
         </div>
         <div class="date">Дата: {{ date|date:"d.m.Y H:i" }}</div>
     </div>
 
     {% for category in categories %}
-        {% if category.products.all %}
+        {% if category.products_list %}
         <div style="margin-top: 30px; page-break-inside: avoid;">
             <h3 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 5px; margin-bottom: 10px;">{{ category.name }}</h3>
             <table>
@@ -96,11 +96,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for product in category.products.all %}
+                    {% for product in category.products_list %}
                     <tr>
                         <td>{{ product.name }}</td>
                         <td class="oem-cell">{{ product.oem_number|default:product.part_number|default:"—" }}</td>
-                        <td class="price-cell">{{ product.price_retail|floatformat:0 }} {{ request.user.currency_symbol }}</td>
+                        <td class="price-cell">{{ product.display_price|floatformat:0 }} {{ request.user.currency_symbol }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -125,7 +125,7 @@
                 <tr>
                     <td>{{ product.name }}</td>
                     <td class="oem-cell">{{ product.oem_number|default:product.part_number|default:"—" }}</td>
-                    <td class="price-cell">{{ product.price_retail|floatformat:0 }} {{ request.user.currency_symbol }}</td>
+                    <td class="price-cell">{{ product.display_price|floatformat:0 }} {{ request.user.currency_symbol }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

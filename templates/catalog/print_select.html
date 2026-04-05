@@ -41,11 +41,48 @@
             </div>
         </div>
 
+        <div class="mb-3" style="margin-top: 24px;">
+            <label class="form-label" style="font-weight: 600;">Уровень цен (наценка):</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                {% for level in price_levels %}
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; transition: all .15s;"
+                       id="label-level-{{ level.pk }}">
+                    <input type="radio" name="price_level" value="{{ level.pk }}"
+                           {% if default_level and level.pk == default_level.pk %}checked{% endif %}
+                           onchange="highlightLevel(this)"
+                           style="accent-color: var(--primary);">
+                    <span>{{ level.name }}</span>
+                    <span style="color: var(--text-muted); font-size: 12px;">+{{ level.markup_percent|floatformat:0 }}%</span>
+                </label>
+                {% empty %}
+                <p class="text-muted" style="font-size: 13px;">Нет уровней цен — будет использована закупочная цена.</p>
+                {% endfor %}
+            </div>
+        </div>
+
         <div style="display: flex; gap: 12px; margin-top: 24px;">
             <button type="submit" class="btn btn-primary" style="flex: 1;">Сформировать прайс</button>
             <a href="{% url 'product_list' %}" class="btn btn-secondary">Отмена</a>
         </div>
     </form>
+
+<script>
+    function highlightLevel(radio) {
+        document.querySelectorAll('[id^="label-level-"]').forEach(l => {
+            l.style.borderColor = '';
+            l.style.background = '';
+        });
+        const lbl = document.getElementById('label-level-' + radio.value);
+        if (lbl) {
+            lbl.style.borderColor = 'var(--primary)';
+            lbl.style.background = 'rgba(59,130,246,.07)';
+        }
+    }
+    // Highlight default on load
+    document.querySelectorAll('input[name="price_level"]').forEach(r => {
+        if (r.checked) highlightLevel(r);
+    });
+</script>
 </div>
 
 <script>
