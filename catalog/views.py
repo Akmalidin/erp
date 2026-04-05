@@ -309,6 +309,10 @@ def product_import_mapping(request):
          'description': 'Бренд или производитель'},
         {'key': 'category', 'label': 'Категория', 'required': False,
          'description': 'Группа / категория товара'},
+        {'key': 'car_make', 'label': 'Марка автомобиля', 'required': False,
+         'description': 'Марка авто (Toyota, BMW...) — для матрицы'},
+        {'key': 'car_model', 'label': 'Модель автомобиля', 'required': False,
+         'description': 'Модель авто (Camry, X5...) — для матрицы'},
     ]
 
     # Try auto-suggest mapping
@@ -321,6 +325,8 @@ def product_import_mapping(request):
         'stock_quantity': ['остаток', 'stock', 'количество', 'кол', 'qty', 'наличие'],
         'brand': ['бренд', 'brand', 'производитель', 'марка', 'фирма'],
         'category': ['категория', 'category', 'группа', 'тип', 'раздел'],
+        'car_make': ['марка авто', 'марка автомобиля', 'car_make', 'carmake', 'make'],
+        'car_model': ['модель авто', 'модель автомобиля', 'car_model', 'carmodel', 'model'],
     }
 
     for field_key, hints in column_map_hints.items():
@@ -349,6 +355,7 @@ def product_import_mapping(request):
 def product_import_process(request):
     """Step 3: Process the import with user-defined column mapping."""
     import os
+    from django.db import transaction
 
     if request.method != 'POST':
         return redirect('product_import')
@@ -368,7 +375,7 @@ def product_import_process(request):
 
     # Read user's column mapping from POST
     field_keys = ['name', 'oem_number', 'part_number', 'price_purchase',
-                  'stock_quantity', 'brand', 'category']
+                  'stock_quantity', 'brand', 'category', 'car_make', 'car_model']
 
     user_mapping = {}  # field_key -> column_index
     for fk in field_keys:
@@ -386,62 +393,97 @@ def product_import_process(request):
         messages.error(request, 'Не указан столбец "Название". Это обязательное поле.')
         return redirect('product_import_mapping')
 
-    # Process rows
+    def get_str(row, field_key):
+        if field_key not in user_mapping:
+            return ''
+        val = row.iloc[user_mapping[field_key]]
+        if pd.isna(val):
+            return ''
+        s = str(val).strip()
+        return '' if s.lower() == 'nan' else s
+
+    # Pre-build caches to avoid per-row DB queries
+    category_cache = {}   # name -> Category
+    make_cache = {}       # name -> CarMake
+    model_cache = {}      # (make_id, name) -> CarModel
+
+    # Pre-load existing products with OEM numbers into a dict
+    existing_by_oem = {
+        p.oem_number: p
+        for p in Product.objects.filter(user=request.user).exclude(oem_number='')
+    }
+
     created = 0
     updated = 0
     errors = 0
 
+    to_create = []           # Product instances (no oem)
+    to_update = []           # Product instances (existing, has oem)
+    # car matrix: list of (product_or_placeholder, make_name, model_name)
+    # We store indices into to_create for deferred m2m after bulk_create
+    car_matrix_new = []      # (list_index, make_name, model_name)
+    car_matrix_update = []   # (product, make_name, model_name)
+
     for idx, row in df.iterrows():
         try:
-            def get_val(field_key, default=''):
-                if field_key not in user_mapping:
-                    return default
-                val = row.iloc[user_mapping[field_key]]
-                if pd.isna(val):
-                    return default
-                return val
-
-            name = str(get_val('name', '')).strip()
-            if not name or name.lower() == 'nan':
+            name = get_str(row, 'name')
+            if not name:
                 errors += 1
                 continue
 
-            oem = str(get_val('oem_number', '')).strip()
-            if oem.lower() == 'nan':
-                oem = ''
+            oem         = get_str(row, 'oem_number')
+            part_number = get_str(row, 'part_number')
+            brand       = get_str(row, 'brand')
+            cat_name    = get_str(row, 'category')
+            make_name   = get_str(row, 'car_make')
+            model_name  = get_str(row, 'car_model')
 
-            part_number = str(get_val('part_number', '')).strip()
-            if part_number.lower() == 'nan':
-                part_number = ''
+            price_purchase = parse_number(get_str(row, 'price_purchase') or 0)
+            stock_qty      = int(parse_number(get_str(row, 'stock_quantity') or 0))
 
-            price_purchase = parse_number(get_val('price_purchase', 0))
-            stock_qty = int(parse_number(get_val('stock_quantity', 0)))
-
-            brand = str(get_val('brand', '')).strip()
-            if brand.lower() == 'nan':
-                brand = ''
-
+            # Category (cached)
             category_obj = None
-            cat_name = str(get_val('category', '')).strip()
-            if cat_name and cat_name.lower() != 'nan':
-                category_obj, _ = Category.objects.get_or_create(user=request.user, name=cat_name)
+            if cat_name:
+                if cat_name not in category_cache:
+                    category_cache[cat_name], _ = Category.objects.get_or_create(
+                        user=request.user, name=cat_name
+                    )
+                category_obj = category_cache[cat_name]
 
-            # Update or create by OEM
-            if oem:
-                product, is_created = Product.objects.update_or_create(
-                    oem_number=oem,
+            if oem and oem in existing_by_oem:
+                # Update existing
+                p = existing_by_oem[oem]
+                p.name           = name
+                p.part_number    = part_number
+                p.brand          = brand
+                p.price_purchase = price_purchase
+                p.stock_quantity = stock_qty
+                p.category       = category_obj
+                to_update.append(p)
+                updated += 1
+                if make_name:
+                    car_matrix_update.append((p, make_name, model_name))
+            elif oem and oem not in existing_by_oem:
+                # New product with OEM — collect for bulk_create
+                p = Product(
                     user=request.user,
-                    defaults={
-                        'name': name,
-                        'part_number': part_number,
-                        'brand': brand,
-                        'price_purchase': price_purchase,
-                        'stock_quantity': stock_qty,
-                        'category': category_obj,
-                    }
+                    oem_number=oem,
+                    name=name,
+                    part_number=part_number,
+                    brand=brand,
+                    price_purchase=price_purchase,
+                    stock_quantity=stock_qty,
+                    category=category_obj,
                 )
+                idx_in_list = len(to_create)
+                to_create.append(p)
+                created += 1
+                existing_by_oem[oem] = p  # prevent duplicate OEM in same file
+                if make_name:
+                    car_matrix_new.append((idx_in_list, make_name, model_name))
             else:
-                product = Product.objects.create(
+                # No OEM — always create
+                p = Product(
                     user=request.user,
                     oem_number='',
                     name=name,
@@ -451,16 +493,59 @@ def product_import_process(request):
                     stock_quantity=stock_qty,
                     category=category_obj,
                 )
-                is_created = True
-
-            if is_created:
+                idx_in_list = len(to_create)
+                to_create.append(p)
                 created += 1
-            else:
-                updated += 1
+                if make_name:
+                    car_matrix_new.append((idx_in_list, make_name, model_name))
 
         except Exception:
             errors += 1
             continue
+
+    # --- Commit in one transaction ---
+    with transaction.atomic():
+        # Bulk create new products
+        if to_create:
+            Product.objects.bulk_create(to_create, batch_size=500)
+
+        # Bulk update existing products
+        if to_update:
+            Product.objects.bulk_update(
+                to_update,
+                ['name', 'part_number', 'brand', 'price_purchase', 'stock_quantity', 'category'],
+                batch_size=500,
+            )
+
+        # Helper: get or create CarMake/CarModel from caches
+        def get_model_obj(make_name, model_name):
+            make_name = make_name.strip()
+            if make_name not in make_cache:
+                make_cache[make_name], _ = CarMake.objects.get_or_create(
+                    user=request.user, name=make_name
+                )
+            make = make_cache[make_name]
+            if not model_name:
+                return None
+            model_name = model_name.strip()
+            key = (make.pk, model_name)
+            if key not in model_cache:
+                model_cache[key], _ = CarModel.objects.get_or_create(
+                    user=request.user, make=make, name=model_name
+                )
+            return model_cache[key]
+
+        # Car matrix for newly created products
+        for list_idx, make_name, model_name in car_matrix_new:
+            car_model_obj = get_model_obj(make_name, model_name)
+            if car_model_obj:
+                to_create[list_idx].compatible_models.add(car_model_obj)
+
+        # Car matrix for updated products
+        for product, make_name, model_name in car_matrix_update:
+            car_model_obj = get_model_obj(make_name, model_name)
+            if car_model_obj:
+                product.compatible_models.add(car_model_obj)
 
     # Cleanup temp file
     try:
