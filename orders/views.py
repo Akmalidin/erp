@@ -83,6 +83,8 @@ def order_create(request):
             return redirect('order_create')
 
         is_quick_sale = request.POST.get('quick_sale') == '1'
+        discount_type = request.POST.get('discount_type', 'none')
+        discount_value = request.POST.get('discount_value', '0')
 
         # Create order
         client = None
@@ -97,9 +99,11 @@ def order_create(request):
             notes=notes,
             paid_amount=Decimal(paid_amount) if paid_amount else 0,
             status='completed' if is_quick_sale else 'new',
+            discount_type=discount_type if discount_type in ('none', 'percent', 'fixed') else 'none',
+            discount_value=Decimal(discount_value) if discount_value else 0,
         )
 
-        total = 0
+        subtotal = 0
         errors = []
 
         for item in items_data:
@@ -107,6 +111,7 @@ def order_create(request):
                 product_id = int(item.get('product_id', 0))
                 qty = int(item.get('quantity', 0))
                 price = float(item.get('price', 0))
+                item_discount = float(item.get('discount_percent', 0))
 
                 if qty <= 0 or price <= 0:
                     continue
@@ -119,11 +124,12 @@ def order_create(request):
                     continue
 
                 # Create order item
-                OrderItem.objects.create(
+                oi = OrderItem.objects.create(
                     order=order,
                     product=product,
                     quantity=qty,
                     price=price,
+                    discount_percent=item_discount,
                 )
 
                 # Deduct stock
@@ -139,10 +145,18 @@ def order_create(request):
                     note=f'Заказ #{order.pk}'
                 )
 
-                total += qty * price
+                subtotal += float(oi.total)
 
             except (Product.DoesNotExist, ValueError, TypeError):
                 errors.append(f'Ошибка при добавлении позиции')
+
+        # Apply order-level discount
+        if order.discount_type == 'percent' and order.discount_value:
+            total = subtotal * float(1 - order.discount_value / 100)
+        elif order.discount_type == 'fixed' and order.discount_value:
+            total = max(subtotal - float(order.discount_value), 0)
+        else:
+            total = subtotal
 
         order.total_price = total
         # Handle debt logic if completed immediately
@@ -152,7 +166,7 @@ def order_create(request):
                 order.client.debt += due
                 order.client.save(update_fields=['debt'])
                 order.is_debt_recorded = True
-        
+
         order.save(update_fields=['total_price', 'is_debt_recorded'])
 
         if errors:
@@ -461,12 +475,14 @@ def pos_view(request):
             return redirect('pos_view')
             
         client = Client.objects.filter(pk=client_id, user=request.user).first() if client_id else None
-        
+        discount_type = request.POST.get('discount_type', 'none')
+        discount_value = request.POST.get('discount_value', '0')
+
         try:
             total_paid = Decimal(str(paid_cash + paid_card))
         except:
             total_paid = Decimal('0.00')
-        
+
         # Create order
         order = Order.objects.create(
             user=request.user,
@@ -475,31 +491,33 @@ def pos_view(request):
             status='completed',
             paid_amount=total_paid,
             payment_method=payment_method,
-            notes='POS продажа'
+            notes='POS продажа',
+            discount_type=discount_type if discount_type in ('none', 'percent', 'fixed') else 'none',
+            discount_value=Decimal(discount_value) if discount_value else Decimal('0'),
         )
         
-        total = Decimal('0.00')
+        subtotal = Decimal('0.00')
         errors = []
         for item in items_data:
             try:
                 product_id = int(item.get('id', 0))
                 qty = int(item.get('qty', 0))
                 price = Decimal(str(item.get('price', 0)))
-                
+                item_discount = Decimal(str(item.get('discount_percent', 0)))
+
                 if qty <= 0 or price <= 0:
                     continue
-                    
+
                 product = Product.objects.get(pk=product_id, user=request.user)
-                
+
                 if product.stock_quantity < qty:
                     errors.append(f'"{product.name}": недостаточно остатка (есть {product.stock_quantity})')
-                    # We continue to add to order since POS is master of truth
-                    
-                OrderItem.objects.create(order=order, product=product, quantity=qty, price=price)
-                
+
+                oi = OrderItem.objects.create(order=order, product=product, quantity=qty, price=price, discount_percent=item_discount)
+
                 product.stock_quantity -= qty
                 product.save(update_fields=['stock_quantity'])
-                
+
                 StockMovement.objects.create(
                     user=request.user,
                     product=product,
@@ -508,11 +526,19 @@ def pos_view(request):
                     movement_type='sale',
                     note=f'Касса (Sale #{order.pk})'
                 )
-                
-                total += qty * price
+
+                subtotal += oi.total
             except Exception as e:
                 continue
-                
+
+        # Apply order-level discount
+        if order.discount_type == 'percent' and order.discount_value:
+            total = subtotal * (1 - order.discount_value / Decimal('100'))
+        elif order.discount_type == 'fixed' and order.discount_value:
+            total = max(subtotal - order.discount_value, Decimal('0'))
+        else:
+            total = subtotal
+
         order.total_price = total
         
         # Process Debt

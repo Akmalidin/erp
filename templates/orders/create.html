@@ -41,7 +41,18 @@
                 <label class="form-label" for="order-notes">Примечание</label>
                 <textarea name="notes" class="form-input" rows="1" placeholder="Примечание..." id="order-notes"></textarea>
             </div>
-            <div class="form-group" style="width: 280px;">
+            <div class="form-group" style="width: 220px;">
+                <label class="form-label">Скидка на заказ</label>
+                <div style="display: flex; gap: 6px;">
+                    <select name="discount_type" id="order-discount-type" class="form-input" style="width:110px;" onchange="window._updateDiscount()">
+                        <option value="none">Нет</option>
+                        <option value="percent">%</option>
+                        <option value="fixed">Сумма</option>
+                    </select>
+                    <input type="number" name="discount_value" id="order-discount-value" class="form-input" value="0" min="0" step="0.01" onchange="window._updateDiscount()" oninput="window._updateDiscount()">
+                </div>
+            </div>
+            <div class="form-group" style="width: 260px;">
                 <label class="form-label" for="order-paid">Оплачено ({{ user.currency_symbol }})</label>
                 <div style="display: flex; gap: 8px;">
                     <input type="number" name="paid_amount" id="order-paid" class="form-input" value="0" step="0.01" min="0">
@@ -75,6 +86,7 @@
                         <th>Закуп.</th>
                         <th>Цена продажи</th>
                         <th>Кол-во</th>
+                        <th>Скидка %</th>
                         <th>Сумма</th>
                         <th></th>
                     </tr>
@@ -85,6 +97,9 @@
         </div>
 
         <div class="order-total">
+            <div id="order-discount-line" style="display:none; font-size:14px; color:#ef4444; margin-bottom:6px;">
+                Скидка: -<span id="order-discount-display">0</span> {{ user.currency_symbol }}
+            </div>
             Итого: <span id="order-grand-total">0 {{ user.currency_symbol }}</span>
         </div>
     </div>
@@ -217,6 +232,7 @@
             prices: product.prices,
             quantity: 1,
             max_stock: product.stock_quantity,
+            item_discount: 0,
         });
         renderItems();
     }
@@ -240,7 +256,10 @@
         }
 
         tableContainer.style.display = 'block';
-        tbody.innerHTML = orderItems.map((item, idx) => `
+        tbody.innerHTML = orderItems.map((item, idx) => {
+            const disc = item.item_discount || 0;
+            const sum = item.price * item.quantity * (1 - disc / 100);
+            return `
             <tr>
                 <td>
                     <div class="fw-bold">${item.name}</div>
@@ -249,30 +268,59 @@
                 <td class="text-muted">${item.price_purchase.toLocaleString()}</td>
                 <td>
                     <input type="number" class="form-input" value="${item.price}" step="0.01" min="0"
-                           style="width:120px;" onchange="window._updateItemPrice(${idx}, this.value)">
+                           style="width:110px;" onchange="window._updateItemPrice(${idx}, this.value)">
                 </td>
                 <td>
                     <input type="number" class="form-input" value="${item.quantity}" min="1" max="${item.max_stock}"
-                           style="width:80px;" onchange="window._updateItemQty(${idx}, this.value)">
+                           style="width:70px;" onchange="window._updateItemQty(${idx}, this.value)">
                 </td>
-                <td class="fw-bold text-accent">${(item.price * item.quantity).toLocaleString()} {{ user.currency_symbol }}</td>
+                <td>
+                    <input type="number" class="form-input" value="${disc}" min="0" max="100" step="1"
+                           style="width:70px;" placeholder="%" onchange="window._updateItemDiscount(${idx}, this.value)"
+                           oninput="window._updateItemDiscount(${idx}, this.value)">
+                </td>
+                <td class="fw-bold text-accent">${sum.toLocaleString()} {{ user.currency_symbol }}</td>
                 <td>
                     <button type="button" class="btn btn-danger btn-sm" onclick="window._removeItem(${idx})">✕</button>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
         updateTotal();
     }
 
     function updateTotal() {
-        const total = orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        const subtotal = orderItems.reduce((sum, i) => {
+            const disc = i.item_discount || 0;
+            return sum + (i.price * i.quantity * (1 - disc / 100));
+        }, 0);
+
+        const dtype = document.getElementById('order-discount-type').value;
+        const dval = parseFloat(document.getElementById('order-discount-value').value) || 0;
+        let discountAmt = 0;
+        if (dtype === 'percent') discountAmt = subtotal * dval / 100;
+        else if (dtype === 'fixed') discountAmt = Math.min(dval, subtotal);
+
+        const total = Math.max(subtotal - discountAmt, 0);
+
+        const discLine = document.getElementById('order-discount-line');
+        const discDisp = document.getElementById('order-discount-display');
+        if (discountAmt > 0) {
+            discLine.style.display = 'block';
+            discDisp.textContent = discountAmt.toLocaleString();
+        } else {
+            discLine.style.display = 'none';
+        }
+
         grandTotal.textContent = total.toLocaleString() + ' {{ user.currency_symbol }}';
         itemsJson.value = JSON.stringify(orderItems.map(i => ({
             product_id: i.product_id,
             quantity: i.quantity,
             price: i.price,
+            discount_percent: i.item_discount || 0,
         })));
     }
+
+    window._updateDiscount = function() { updateTotal(); };
 
     // Expose to inline handlers
     window._updateItemPrice = function(idx, val) {
@@ -284,13 +332,25 @@
         orderItems[idx].quantity = Math.min(qty, orderItems[idx].max_stock);
         renderItems();
     };
+    window._updateItemDiscount = function(idx, val) {
+        orderItems[idx].item_discount = Math.min(Math.max(parseFloat(val) || 0, 0), 100);
+        updateTotal();
+    };
     window._removeItem = function(idx) {
         orderItems.splice(idx, 1);
         renderItems();
     };
     window._payFull = function() {
-        const total = orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        document.getElementById('order-paid').value = total.toFixed(2);
+        const subtotal = orderItems.reduce((sum, i) => {
+            const d = i.item_discount || 0;
+            return sum + (i.price * i.quantity * (1 - d / 100));
+        }, 0);
+        const dtype = document.getElementById('order-discount-type').value;
+        const dval = parseFloat(document.getElementById('order-discount-value').value) || 0;
+        let disc = 0;
+        if (dtype === 'percent') disc = subtotal * dval / 100;
+        else if (dtype === 'fixed') disc = Math.min(dval, subtotal);
+        document.getElementById('order-paid').value = Math.max(subtotal - disc, 0).toFixed(2);
     };
 })();
 </script>

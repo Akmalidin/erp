@@ -1,7 +1,7 @@
 """
 User views: login, register, dashboard, logout.
 """
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -205,3 +205,89 @@ def dashboard_view(request):
         'top_products': list(top_products),
     }
     return render(request, 'dashboard.html', context)
+
+
+# ═══════════════════════════════════════════
+# SUPERADMIN PANEL (только для владельца)
+# ═══════════════════════════════════════════
+
+SUPERADMIN_EMAIL = 'akmalmadakimov6@gmail.com'
+
+
+def superadmin_required(view_func):
+    """Decorator: only allow superadmin email."""
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or request.user.email != SUPERADMIN_EMAIL:
+            messages.error(request, 'Доступ запрещен')
+            return redirect('dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+@login_required
+@superadmin_required
+def superadmin_panel(request):
+    """Owner control panel: manage all users."""
+    from .models import User
+    from catalog.models import Product
+    from orders.models import Order
+    from crm.models import Client
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        user_id = request.POST.get('user_id')
+        target = User.objects.filter(pk=user_id).exclude(email=SUPERADMIN_EMAIL).first()
+
+        if target:
+            if action == 'block':
+                target.is_active = False
+                target.save(update_fields=['is_active'])
+                messages.success(request, f'Пользователь {target.email} заблокирован')
+            elif action == 'unblock':
+                target.is_active = True
+                target.save(update_fields=['is_active'])
+                messages.success(request, f'Пользователь {target.email} разблокирован')
+            elif action == 'set_password':
+                new_pass = request.POST.get('new_password', '').strip()
+                if new_pass and len(new_pass) >= 6:
+                    target.set_password(new_pass)
+                    target.save()
+                    messages.success(request, f'Пароль для {target.email} изменён')
+                else:
+                    messages.error(request, 'Пароль должен быть минимум 6 символов')
+        return redirect('superadmin_panel')
+
+    users = User.objects.exclude(email=SUPERADMIN_EMAIL).order_by('-date_joined').annotate(
+        product_count=Count('products', distinct=True),
+        order_count=Count('orders', distinct=True),
+        client_count=Count('clients', distinct=True),
+    )
+
+    context = {'users': users}
+    return render(request, 'users/superadmin_panel.html', context)
+
+
+@login_required
+@superadmin_required
+def superadmin_user_data(request, user_id):
+    """View data for a specific user."""
+    from .models import User
+    from catalog.models import Product
+    from orders.models import Order
+    from crm.models import Client
+    from purchases.models import Purchase
+
+    target = get_object_or_404(User, pk=user_id)
+    products = Product.objects.filter(user=target).order_by('-created_at')[:20]
+    orders = Order.objects.filter(user=target).select_related('client').order_by('-created_at')[:20]
+    clients = Client.objects.filter(user=target).order_by('name')[:20]
+
+    context = {
+        'target': target,
+        'products': products,
+        'orders': orders,
+        'clients': clients,
+    }
+    return render(request, 'users/superadmin_user_data.html', context)

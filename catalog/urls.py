@@ -23,6 +23,8 @@ urlpatterns = [
     path('price-levels/<int:pk>/delete/', views.price_level_delete, name='price_level_delete'),
     # Product detail/edit/delete (keep last — <int:pk> catches everything)
     path('car-matrix/', views.car_matrix_list, name='car_matrix_list'),
+    path('car-matrix/make/<int:pk>/', views.car_make_detail, name='car_make_detail'),
+    path('car-matrix/model/<int:pk>/', views.car_model_detail, name='car_model_detail'),
     path('<int:pk>/', views.product_detail, name='product_detail'),
     path('<int:pk>/edit/', views.product_edit, name='product_edit'),
     path('<int:pk>/delete/', views.product_delete, name='product_delete'),

@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Панель владельца{% endblock %}
+{% block navbar_title %}Панель владельца{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Управление пользователями</h1>
+        <p class="page-subtitle">{{ users|length }} арендаторов</p>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Email / Компания</th>
+                <th>Валюта</th>
+                <th>Товаров</th>
+                <th>Заказов</th>
+                <th>Клиентов</th>
+                <th>Зарегистрирован</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>
+                    <div class="fw-bold">
+                        <a href="{% url 'superadmin_user_data' u.pk %}" style="color:var(--text-primary);">
+                            {{ u.email }}
+                        </a>
+                    </div>
+                    {% if u.company_name %}<div class="text-muted" style="font-size:12px;">{{ u.company_name }}</div>{% endif %}
+                </td>
+                <td>{{ u.currency }}</td>
+                <td>{{ u.product_count }}</td>
+                <td>{{ u.order_count }}</td>
+                <td>{{ u.client_count }}</td>
+                <td class="text-muted" style="font-size:12px;">{{ u.date_joined|date:"d.m.Y" }}</td>
+                <td>
+                    {% if u.is_active %}
+                    <span class="badge badge-ok">Активен</span>
+                    {% else %}
+                    <span class="badge badge-cancelled">Заблокирован</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <a href="{% url 'superadmin_user_data' u.pk %}" class="btn btn-secondary btn-sm">Данные</a>
+                        {% if u.is_active %}
+                        <form method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="block">
+                            <input type="hidden" name="user_id" value="{{ u.pk }}">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Заблокировать {{ u.email }}?')">Блок</button>
+                        </form>
+                        {% else %}
+                        <form method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="unblock">
+                            <input type="hidden" name="user_id" value="{{ u.pk }}">
+                            <button type="submit" class="btn btn-secondary btn-sm" style="color:#10b981;">Разблок</button>
+                        </form>
+                        {% endif %}
+                        <!-- Change Password -->
+                        <button class="btn btn-secondary btn-sm" onclick="togglePassForm({{ u.pk }})">Пароль</button>
+                    </div>
+                    <!-- Password form (hidden) -->
+                    <div id="pass-form-{{ u.pk }}" style="display:none; margin-top:8px;">
+                        <form method="post" style="display:flex; gap:6px; align-items:center;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="set_password">
+                            <input type="hidden" name="user_id" value="{{ u.pk }}">
+                            <input type="text" name="new_password" class="form-input" placeholder="Новый пароль" style="width:150px; padding:6px 10px; font-size:13px;">
+                            <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-muted" style="padding:40px;">Нет пользователей</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function togglePassForm(uid) {
+    const el = document.getElementById('pass-form-' + uid);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

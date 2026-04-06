@@ -18,6 +18,12 @@ class Order(models.Model):
         ('cancelled', 'Отменен'),
     ]
 
+    DISCOUNT_TYPE_CHOICES = [
+        ('none', 'Нет скидки'),
+        ('percent', 'Процент (%)'),
+        ('fixed', 'Фиксированная сумма'),
+    ]
+
     client = models.ForeignKey(
         Client,
         on_delete=models.SET_NULL,
@@ -42,6 +48,12 @@ class Order(models.Model):
     ])
     status = models.CharField('Статус', max_length=20, choices=STATUS_CHOICES, default='new')
     notes = models.TextField('Примечание', blank=True)
+    discount_type = models.CharField('Тип скидки', max_length=10, default='none', choices=[
+        ('none', 'Нет скидки'),
+        ('percent', 'Процент (%)'),
+        ('fixed', 'Фиксированная сумма'),
+    ])
+    discount_value = models.DecimalField('Скидка', max_digits=10, decimal_places=2, default=0)
     is_debt_recorded = models.BooleanField(default=False)
     shift = models.ForeignKey(
         'crm.Shift',
@@ -64,10 +76,31 @@ class Order(models.Model):
         return f'Заказ #{self.pk} — {client_name}'
 
     def recalculate_total(self):
-        """Recalculate total price from items."""
-        total = sum(item.total for item in self.items.all())
-        self.total_price = total
+        """Recalculate total price from items (with discounts)."""
+        from decimal import Decimal
+        subtotal = sum(item.total for item in self.items.all())
+        if self.discount_type == 'percent' and self.discount_value:
+            discount = subtotal * self.discount_value / Decimal('100')
+        elif self.discount_type == 'fixed' and self.discount_value:
+            discount = self.discount_value
+        else:
+            discount = Decimal('0')
+        self.total_price = max(subtotal - discount, Decimal('0'))
         self.save(update_fields=['total_price'])
+
+    @property
+    def subtotal(self):
+        return sum(item.total for item in self.items.all())
+
+    @property
+    def discount_amount(self):
+        from decimal import Decimal
+        sub = self.subtotal
+        if self.discount_type == 'percent' and self.discount_value:
+            return sub * self.discount_value / Decimal('100')
+        elif self.discount_type == 'fixed' and self.discount_value:
+            return self.discount_value
+        return Decimal('0')
 
     @property
     def status_color(self):
@@ -102,6 +135,7 @@ class OrderItem(models.Model):
     )
     quantity = models.PositiveIntegerField('Кол-во', default=1)
     price = models.DecimalField('Цена за ед.', max_digits=12, decimal_places=2)
+    discount_percent = models.DecimalField('Скидка (%)', max_digits=5, decimal_places=2, default=0)
 
     class Meta:
         verbose_name = 'Позиция заказа'
@@ -112,4 +146,16 @@ class OrderItem(models.Model):
 
     @property
     def total(self):
-        return self.quantity * self.price
+        from decimal import Decimal
+        base = self.quantity * self.price
+        if self.discount_percent:
+            return base * (1 - self.discount_percent / Decimal('100'))
+        return base
+
+    @property
+    def discount_amount(self):
+        from decimal import Decimal
+        base = self.quantity * self.price
+        if self.discount_percent:
+            return base * self.discount_percent / Decimal('100')
+        return Decimal('0')

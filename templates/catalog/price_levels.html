@@ -51,7 +51,7 @@
                         <th>Название</th>
                         <th>Наценка</th>
                         {% if sample_product %}
-                        <th>Пример ({{ sample_product.price_purchase|floatformat:0|intcomma }} ₸)</th>
+                        <th>Пример ({{ sample_product.price_purchase|floatformat:0|intcomma }} {{ request.user.currency_symbol }})</th>
                         {% endif %}
                         <th>По умолч.</th>
                         <th>Действия</th>
@@ -65,7 +65,7 @@
                             <span class="badge" style="background: rgba(255,90,31,0.12); color: var(--accent-to);">+{{ item.level.markup_percent }}%</span>
                         </td>
                         {% if sample_product %}
-                        <td class="fw-bold text-accent">{{ item.example_price|floatformat:0|intcomma }} ₸</td>
+                        <td class="fw-bold text-accent">{{ item.example_price|floatformat:0|intcomma }} {{ request.user.currency_symbol }}</td>
                         {% endif %}
                         <td>
                             {% if item.level.is_default %}

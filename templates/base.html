@@ -285,6 +285,15 @@
                 </div>
             </nav>
 
+            {% if user.email == 'akmalmadakimov6@gmail.com' %}
+            <div class="sidebar-section" style="padding: 0 12px; margin-bottom:8px;">
+                <a href="{% url 'superadmin_panel' %}" class="sidebar-link" style="background:rgba(255,90,31,0.08); border:1px solid rgba(255,90,31,0.2);">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+                    Панель владельца
+                </a>
+            </div>
+            {% endif %}
+
             <div class="sidebar-footer">
                 <a href="{% url 'profile' %}" class="sidebar-user"
                     style="text-decoration: none; color: inherit; display: flex; align-items: center; padding: 8px; border-radius: 8px; transition: background 0.2s;"
@@ -471,11 +480,11 @@
             }
         }
 
-        const saved = localStorage.getItem('crm_theme') || 'dark';
+        const saved = localStorage.getItem('crm_theme') || 'light';
         applyTheme(saved);
 
         document.addEventListener('DOMContentLoaded', function() {
-            applyTheme(localStorage.getItem('crm_theme') || 'dark');
+            applyTheme(localStorage.getItem('crm_theme') || 'light');
             const btn = document.getElementById('theme-toggle');
             if (btn) {
                 btn.addEventListener('click', function() {
@@ -493,6 +502,49 @@
                     const inp = document.getElementById('global-search-input');
                     if (inp) inp.focus();
                 }
+            });
+
+            // Sidebar toggle (works on all screen sizes)
+            const hamburger = document.getElementById('hamburger-btn');
+            const overlay = document.getElementById('sidebar-overlay');
+            const layout = document.querySelector('.app-layout');
+
+            const SIDEBAR_KEY = 'sidebar_collapsed';
+            const isMobile = () => window.innerWidth <= 1024;
+
+            function setSidebarState(collapsed) {
+                if (layout) layout.classList.toggle('sidebar-collapsed', collapsed);
+                if (overlay) overlay.style.display = (!collapsed && isMobile()) ? 'block' : 'none';
+                localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
+            }
+
+            // Init state
+            const savedState = localStorage.getItem(SIDEBAR_KEY);
+            if (savedState !== null) {
+                setSidebarState(savedState === '1');
+            } else {
+                // Default: collapsed on mobile, expanded on desktop
+                setSidebarState(isMobile());
+            }
+
+            if (hamburger) {
+                hamburger.addEventListener('click', function() {
+                    const isCollapsed = layout && layout.classList.contains('sidebar-collapsed');
+                    setSidebarState(!isCollapsed);
+                });
+            }
+            if (overlay) {
+                overlay.addEventListener('click', function() {
+                    setSidebarState(true);
+                });
+            }
+
+            // Re-check on resize
+            window.addEventListener('resize', function() {
+                if (!isMobile() && layout && layout.classList.contains('sidebar-collapsed')) {
+                    // On desktop, if was collapsed due to mobile, restore
+                }
+                if (overlay) overlay.style.display = 'none';
             });
         });
     })();

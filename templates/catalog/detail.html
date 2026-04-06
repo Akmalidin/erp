@@ -108,7 +108,7 @@
             <h3 class="card-title mb-2">Цены</h3>
             <div class="detail-item" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
                 <span class="detail-label">Закупочная цена</span>
-                <span class="detail-value" style="font-size: 18px;">{{ product.price_purchase|floatformat:0|intcomma }} ₸</span>
+                <span class="detail-value" style="font-size: 18px;">{{ product.price_purchase|floatformat:0|intcomma }} {{ request.user.currency_symbol }}</span>
             </div>
             {% for item in all_prices %}
             <div class="price-level-row {% if item.level.is_default %}price-level-default{% endif %}">
@@ -116,7 +116,7 @@
                     <span class="price-level-name">{{ item.level.name }}</span>
                     <span class="text-muted" style="font-size: 12px; margin-left: 8px;">+{{ item.level.markup_percent }}%</span>
                 </div>
-                <span class="price-level-price">{{ item.price|floatformat:0|intcomma }} ₸</span>
+                <span class="price-level-price">{{ item.price|floatformat:0|intcomma }} {{ request.user.currency_symbol }}</span>
             </div>
             {% endfor %}
             <div style="margin-top: 16px;">

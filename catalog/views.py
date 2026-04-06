@@ -877,6 +877,22 @@ def car_matrix_list(request):
 
 
 @login_required
+def car_make_detail(request, pk):
+    """Show models for a specific car make."""
+    make = get_object_or_404(CarMake, pk=pk, user=request.user)
+    car_models = CarModel.objects.filter(make=make, user=request.user).prefetch_related('products')
+    return render(request, 'catalog/car_make_detail.html', {'make': make, 'car_models': car_models})
+
+
+@login_required
+def car_model_detail(request, pk):
+    """Show products compatible with a specific car model."""
+    car_model = get_object_or_404(CarModel, pk=pk, user=request.user)
+    products = Product.objects.filter(compatible_models=car_model, user=request.user).select_related('category')
+    return render(request, 'catalog/car_model_detail.html', {'car_model': car_model, 'products': products})
+
+
+@login_required
 def print_price_tags(request):
     """Bulk print 58×40mm price labels for selected products."""
     product_ids = request.GET.getlist('ids')

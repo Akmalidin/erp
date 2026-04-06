@@ -13,7 +13,7 @@
     {% for make in makes %}
     <div class="card animate-in">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 15px;">
-            <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--accent-from);">{{ make.name }}</h3>
+            <a href="{% url 'car_make_detail' make.pk %}" style="margin: 0; font-size: 20px; font-weight: 800; color: var(--accent-to); text-decoration:none;">{{ make.name }}</a>
             <div style="display: flex; gap: 8px;">
                 <button class="btn btn-secondary btn-sm" onclick="openModelModal('{{ make.id }}', '{{ make.name }}')" title="Добавить модель">+</button>
                 <form method="post" onsubmit="return confirm('Удалить марку {{ make.name }} со всеми моделями?')">
@@ -27,13 +27,16 @@
         
         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
             {% for model in make.models.all %}
-            <div class="badge" style="background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); display: flex; align-items: center; gap: 6px; padding: 6px 12px;">
-                {{ model.name }}
-                <form method="post" style="display: inline;">
+            <div style="display:flex; align-items:center; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; overflow:hidden;">
+                <a href="{% url 'car_model_detail' model.pk %}" style="padding: 6px 10px; color: var(--text-primary); font-size:13px; text-decoration:none; font-weight:500;"
+                   onmouseover="this.style.color='var(--accent-to)'" onmouseout="this.style.color='var(--text-primary)'">
+                    {{ model.name }}
+                </a>
+                <form method="post" style="display: inline; margin:0;">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="delete_model">
                     <input type="hidden" name="pk" value="{{ model.id }}">
-                    <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer; color: var(--text-muted); font-size: 14px;">✕</button>
+                    <button type="submit" style="background: none; border: none; border-left:1px solid var(--border); padding: 6px 8px; cursor: pointer; color: var(--text-muted); font-size: 14px; height:100%;">✕</button>
                 </form>
             </div>
             {% empty %}

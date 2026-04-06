@@ -42,8 +42,16 @@
                 <tbody>
                     {% for cat in categories %}
                     <tr>
-                        <td class="fw-bold">{{ cat.name }}</td>
-                        <td>{{ cat.product_count }}</td>
+                        <td>
+                            <a href="{% url 'product_list' %}?category={{ cat.pk }}" class="fw-bold" style="color:var(--text-primary);">
+                                {{ cat.name }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{% url 'product_list' %}?category={{ cat.pk }}" class="badge badge-processing" style="text-decoration:none;">
+                                {{ cat.product_count }}
+                            </a>
+                        </td>
                         <td>
                             <form method="post" action="{% url 'category_delete' cat.pk %}" style="display: inline;">
                                 {% csrf_token %}

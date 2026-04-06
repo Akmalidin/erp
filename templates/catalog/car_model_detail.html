@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ car_model }} — Совместимые товары{% endblock %}
+{% block navbar_title %}{{ car_model }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ car_model }}</h1>
+        <p class="page-subtitle">{{ products|length }} совместимых товаров</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{% url 'car_make_detail' car_model.make.pk %}" class="btn btn-secondary">← {{ car_model.make.name }}</a>
+        <a href="{% url 'car_matrix_list' %}" class="btn btn-secondary">Все марки</a>
+    </div>
+</div>
+
+{% if products %}
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Наименование</th>
+                <th>OEM / Артикул</th>
+                <th>Категория</th>
+                <th>Розничная цена</th>
+                <th>Остаток</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>
+                    <a href="{% url 'product_detail' product.pk %}" class="fw-bold">{{ product.name }}</a>
+                </td>
+                <td class="text-muted">{{ product.oem_number|default:product.part_number|default:"—" }}</td>
+                <td>{{ product.category.name|default:"—" }}</td>
+                <td class="fw-bold text-accent">{{ product.price_retail|floatformat:0|intcomma }} {{ request.user.currency_symbol }}</td>
+                <td>
+                    {% if product.stock_quantity > 0 %}
+                    <span class="badge badge-ok">{{ product.stock_quantity }}</span>
+                    {% else %}
+                    <span class="badge badge-cancelled">0</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'product_detail' product.pk %}" class="btn btn-secondary btn-sm">Открыть</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card text-center" style="padding:60px;">
+    <p class="text-muted" style="font-size:18px;">Товаров для этой модели не найдено</p>
+    <p class="text-muted" style="margin-top:8px;">Добавьте совместимость в карточке товара.</p>
+    <div style="margin-top:24px;">
+        <a href="{% url 'product_list' %}" class="btn btn-primary">Перейти в каталог</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

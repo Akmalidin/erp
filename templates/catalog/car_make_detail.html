@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ make.name }} — Матрица автомобилей{% endblock %}
+{% block navbar_title %}{{ make.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ make.name }}</h1>
+        <p class="page-subtitle">{{ car_models|length }} моделей</p>
+    </div>
+    <a href="{% url 'car_matrix_list' %}" class="btn btn-secondary">← Все марки</a>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+    {% for model in car_models %}
+    <a href="{% url 'car_model_detail' model.pk %}" style="text-decoration:none;">
+        <div class="card" style="cursor:pointer; transition: all 0.2s; border:1px solid var(--border);"
+             onmouseover="this.style.borderColor='var(--accent-to)'; this.style.transform='translateY(-2px)';"
+             onmouseout="this.style.borderColor='var(--border)'; this.style.transform='';">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:16px; font-weight:700; color:var(--text-primary);">{{ model.name }}</div>
+                    <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+                        {% with cnt=model.products.count %}
+                        {{ cnt }} товар{{ cnt|pluralize:",,ов" }}
+                        {% endwith %}
+                    </div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </div>
+        </div>
+    </a>
+    {% empty %}
+    <div class="card text-center text-muted" style="grid-column:1/-1; padding:40px;">
+        Моделей для этой марки пока нет.
+        <div style="margin-top:16px;">
+            <a href="{% url 'car_matrix_list' %}" class="btn btn-primary">Добавить модели</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

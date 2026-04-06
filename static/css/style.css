@@ -438,7 +438,7 @@ a:hover {
 }
 
 .hamburger {
-    display: none;
+    display: flex;
     background: none;
     border: none;
     color: var(--text-primary);
@@ -447,8 +447,31 @@ a:hover {
     border-radius: var(--radius-sm);
 }
 
-.hamburger:hover { background: rgba(255,255,255,0.06); }
+.hamburger:hover { background: rgba(0,0,0,0.06); }
 .hamburger svg { width: 24px; height: 24px; }
+
+/* Sidebar collapsed (all screens) */
+.app-layout.sidebar-collapsed .sidebar {
+    transform: translateX(-100%);
+}
+.app-layout.sidebar-collapsed .main-content {
+    margin-left: 0;
+}
+/* Sidebar visible on desktop (override mobile default) */
+@media (min-width: 1025px) {
+    .sidebar {
+        transform: translateX(0) !important;
+    }
+    .app-layout.sidebar-collapsed .sidebar {
+        transform: translateX(-100%) !important;
+    }
+    .main-content {
+        margin-left: var(--sidebar-width);
+    }
+    .app-layout.sidebar-collapsed .main-content {
+        margin-left: 0;
+    }
+}
 
 /* ── Content Area ── */
 .content {
@@ -1384,17 +1407,9 @@ textarea.form-input {
    RESPONSIVE
    ═══════════════════════════════════════════ */
 @media (max-width: 1024px) {
-    .sidebar {
-        transform: translateX(-100%);
-    }
-    .sidebar.open {
-        transform: translateX(0);
-    }
+    /* On mobile, sidebar is collapsed by default (JS adds class on load) */
     .main-content {
         margin-left: 0;
-    }
-    .hamburger {
-        display: flex;
     }
     .content {
         padding: 20px;

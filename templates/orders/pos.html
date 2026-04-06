@@ -135,6 +135,7 @@
                             <th>Наименование</th>
                             <th>Цена</th>
                             <th style="width: 120px;">Количество</th>
+                            <th style="width:80px;">Скидка</th>
                             <th>Сумма</th>
                             <th></th>
                         </tr>
@@ -159,6 +160,22 @@
             </select>
         </div>
         
+        <!-- Discount section -->
+        <div>
+            <label class="form-label">Скидка</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <select id="pos-discount-type" class="form-input" style="font-size:14px; padding:8px; width:130px;" onchange="recalcTotal()">
+                    <option value="none">Нет</option>
+                    <option value="percent">%</option>
+                    <option value="fixed">Сумма</option>
+                </select>
+                <input type="number" id="pos-discount-value" class="form-input" style="font-size:14px; padding:8px; flex:1;" value="0" min="0" step="0.01" oninput="recalcTotal()">
+            </div>
+            <div id="pos-discount-display" style="font-size:13px; color:#ef4444; margin-top:4px; display:none;">
+                Скидка: <span id="pos-discount-amount">0</span> {{ user.currency_symbol }}
+            </div>
+        </div>
+
         <div>
             <label class="form-label">К оплате</label>
             <div class="pos-total-display" id="total-display">
@@ -185,8 +202,7 @@
     </div>
 </div>
 
-<!-- Audio for scanner -->
-<audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2216/2216-preview.mp3" preload="auto"></audio>
+<!-- No external audio needed — using Web Audio API beep -->
 
 <!-- Payment Modal -->
 <div class="modal-overlay" id="payment-modal">
@@ -231,6 +247,8 @@
     <input type="hidden" name="payment_method" id="hidden-method">
     <input type="hidden" name="paid_cash" id="hidden-cash">
     <input type="hidden" name="paid_card" id="hidden-card">
+    <input type="hidden" name="discount_type" id="hidden-discount-type">
+    <input type="hidden" name="discount_value" id="hidden-discount-value">
 </form>
 
 {% endblock %}
@@ -241,6 +259,55 @@
     let currentPaymentMethod = 'cash';
     let searchTimeout = null;
     const currency = '{{ user.currency_symbol }}';
+
+    // Web Audio API beep
+    function playBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.15);
+        } catch(e) {}
+    }
+
+    function getCartSubtotal() {
+        return cart.reduce((sum, item) => {
+            const discounted = item.price * item.qty * (1 - (item.item_discount || 0) / 100);
+            return sum + discounted;
+        }, 0);
+    }
+
+    function getOrderDiscount(subtotal) {
+        const dtype = document.getElementById('pos-discount-type').value;
+        const dval = parseFloat(document.getElementById('pos-discount-value').value) || 0;
+        if (dtype === 'percent') return subtotal * dval / 100;
+        if (dtype === 'fixed') return Math.min(dval, subtotal);
+        return 0;
+    }
+
+    function recalcTotal() {
+        const subtotal = getCartSubtotal();
+        const discount = getOrderDiscount(subtotal);
+        const total = Math.max(subtotal - discount, 0);
+
+        const discountEl = document.getElementById('pos-discount-display');
+        const discountAmt = document.getElementById('pos-discount-amount');
+        if (discount > 0) {
+            discountEl.style.display = 'block';
+            discountAmt.textContent = discount.toLocaleString();
+        } else {
+            discountEl.style.display = 'none';
+        }
+
+        document.getElementById('total-display').textContent = total.toLocaleString() + ' ' + currency;
+    }
 
     const searchInput = document.getElementById('pos-search');
     const resultsContainer = document.getElementById('search-results-container');
@@ -354,34 +421,27 @@
                 price: parseFloat(product.price_default),
                 qty: 1,
                 max_qty: product.stock_quantity,
-                prices: product.prices // Store all available prices
+                prices: product.prices,
+                item_discount: 0,
             });
         }
-        
-        // Play beep sound
-        const beep = document.getElementById('beep-sound');
-        if(beep) {
-            beep.currentTime = 0;
-            beep.play().catch(e => console.log('Audio error:', e));
-        }
-
+        playBeep();
         renderCart();
     }
 
     function renderCart() {
         const tbody = document.getElementById('cart-body');
         let html = '';
-        let total = 0;
 
         cart.forEach((item, idx) => {
-            const sum = item.price * item.qty;
-            total += sum;
+            const itemDisc = item.item_discount || 0;
+            const sum = item.price * item.qty * (1 - itemDisc / 100);
             html += `
                 <tr>
                     <td class="text-muted">${idx+1}</td>
                     <td class="fw-bold">${item.name} <br><small class="text-muted">${item.oem}</small></td>
                     <td>
-                        <select onchange="updateItemPrice(${idx}, this.value)" style="background:transparent; border:none; color:var(--text-color); font-weight:bold; cursor:pointer;">
+                        <select onchange="updateItemPrice(${idx}, this.value)" style="background:transparent; border:none; color:var(--text-color); font-weight:bold; cursor:pointer; font-size:15px;">
                             <option value="${item.price}" selected>${item.price.toLocaleString()}</option>
                             ${Object.values(item.prices || {}).map(lp => `
                                 <option value="${lp.price}">${lp.price} (${lp.name})</option>
@@ -395,6 +455,14 @@
                             <button class="btn btn-secondary btn-sm" onclick="changeQty(${idx}, 1)" style="padding:2px 8px;">+</button>
                         </div>
                     </td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <input type="number" class="form-input" style="width:55px;padding:4px;font-size:13px;text-align:center;"
+                                   value="${itemDisc}" min="0" max="100" step="1" placeholder="%"
+                                   oninput="setItemDiscount(${idx}, this.value)" title="Скидка на товар (%)">
+                            <span style="font-size:11px;color:var(--text-muted);">%</span>
+                        </div>
+                    </td>
                     <td class="text-accent fw-bold">${sum.toLocaleString()} ${currency}</td>
                     <td><button class="btn btn-secondary" onclick="removeItem(${idx})" style="color:var(--danger-color); font-weight:bold;">✕</button></td>
                 </tr>
@@ -402,12 +470,17 @@
         });
 
         tbody.innerHTML = html;
-        document.getElementById('total-display').textContent = total.toLocaleString() + ' ' + currency;
+        recalcTotal();
     }
 
     window.updateItemPrice = function(idx, newPrice) {
         cart[idx].price = parseFloat(newPrice);
         renderCart();
+    };
+
+    window.setItemDiscount = function(idx, val) {
+        cart[idx].item_discount = Math.min(Math.max(parseFloat(val) || 0, 0), 100);
+        recalcTotal();
     };
 
     window.changeQty = function(idx, delta) {
@@ -447,7 +520,9 @@
             return;
         }
         currentPaymentMethod = method;
-        const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const subtotal = getCartSubtotal();
+        const discount = getOrderDiscount(subtotal);
+        const total = Math.max(subtotal - discount, 0);
         
         document.getElementById('modal-total').textContent = total.toLocaleString() + ' ' + currency;
         document.getElementById('cash-given').value = method === 'card' ? 0 : total;
@@ -477,7 +552,9 @@
     };
 
     window.calcChange = function() {
-        const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const subtotal = getCartSubtotal();
+        const discount = getOrderDiscount(subtotal);
+        const total = Math.max(subtotal - discount, 0);
         const cash = parseFloat(document.getElementById('cash-given').value) || 0;
         const card = parseFloat(document.getElementById('card-given').value) || 0;
         
@@ -494,10 +571,12 @@
 
     window.submitOrder = function() {
         if(cart.length === 0) return;
-        
+
         const cash = parseFloat(document.getElementById('cash-given').value) || 0;
         const card = parseFloat(document.getElementById('card-given').value) || 0;
         const client = document.getElementById('pos-client').value;
+        const dtype = document.getElementById('pos-discount-type').value;
+        const dval = parseFloat(document.getElementById('pos-discount-value').value) || 0;
 
         // Fill hidden form
         document.getElementById('hidden-cart').value = JSON.stringify(cart);
@@ -505,7 +584,9 @@
         document.getElementById('hidden-method').value = currentPaymentMethod;
         document.getElementById('hidden-cash').value = cash;
         document.getElementById('hidden-card').value = card;
-        
+        document.getElementById('hidden-discount-type').value = dtype;
+        document.getElementById('hidden-discount-value').value = dval;
+
         document.getElementById('pos-form').submit();
     };
 

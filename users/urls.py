@@ -13,4 +13,6 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('search/', views.global_search, name='global_search'),
     path('backup/', views.backup_db, name='backup_db'),
+    path('superadmin/', views.superadmin_panel, name='superadmin_panel'),
+    path('superadmin/user/<int:user_id>/', views.superadmin_user_data, name='superadmin_user_data'),
 ]

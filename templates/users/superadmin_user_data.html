@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Данные: {{ target.email }}{% endblock %}
+{% block navbar_title %}Данные пользователя{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ target.email }}</h1>
+        <p class="page-subtitle">{{ target.company_name|default:"Компания не указана" }} · {{ target.currency }}</p>
+    </div>
+    <a href="{% url 'superadmin_panel' %}" class="btn btn-secondary">← Все пользователи</a>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+    <!-- Products -->
+    <div class="card">
+        <h3 class="card-title mb-2">Последние товары ({{ products|length }})</h3>
+        <table class="data-table">
+            <thead><tr><th>Название</th><th>OEM</th><th>Цена</th><th>Остаток</th></tr></thead>
+            <tbody>
+                {% for p in products %}
+                <tr>
+                    <td>{{ p.name|truncatechars:30 }}</td>
+                    <td class="text-muted">{{ p.oem_number|default:"—" }}</td>
+                    <td>{{ p.price_purchase|floatformat:0|intcomma }}</td>
+                    <td>{{ p.stock_quantity }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted text-center">Нет товаров</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Orders -->
+    <div class="card">
+        <h3 class="card-title mb-2">Последние заказы ({{ orders|length }})</h3>
+        <table class="data-table">
+            <thead><tr><th>#</th><th>Клиент</th><th>Сумма</th><th>Дата</th></tr></thead>
+            <tbody>
+                {% for o in orders %}
+                <tr>
+                    <td>#{{ o.pk }}</td>
+                    <td>{{ o.client.name|default:"Розница" }}</td>
+                    <td>{{ o.total_price|floatformat:0|intcomma }}</td>
+                    <td>{{ o.created_at|date:"d.m.Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted text-center">Нет заказов</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Clients -->
+    <div class="card">
+        <h3 class="card-title mb-2">Клиенты ({{ clients|length }})</h3>
+        <table class="data-table">
+            <thead><tr><th>Имя</th><th>Телефон</th><th>Долг</th></tr></thead>
+            <tbody>
+                {% for c in clients %}
+                <tr>
+                    <td>{{ c.name }}</td>
+                    <td class="text-muted">{{ c.phone|default:"—" }}</td>
+                    <td {% if c.debt > 0 %}style="color:#ef4444; font-weight:600;"{% endif %}>
+                        {{ c.debt|floatformat:0|intcomma }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-muted text-center">Нет клиентов</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
