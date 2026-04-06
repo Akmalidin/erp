@@ -39,6 +39,38 @@
                 onclick="printSelectedTags()">
             🏷 Печать ценников (<span id="selected-count">0</span>)
         </button>
+
+        <!-- Column settings button -->
+        <div style="position:relative;" id="col-settings-wrap">
+            <button type="button" class="btn btn-secondary" id="col-settings-btn" onclick="toggleColPanel()" title="Настройка столбцов">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Столбцы
+            </button>
+            <div id="col-panel" style="display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; min-width:260px; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.2);">
+                <div style="font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:12px; font-weight:600;">Видимость столбцов</div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for col in col_defs %}
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+                        <input type="checkbox" class="col-toggle" data-col="{{ col.key }}" checked
+                               style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;">
+                        {{ col.label }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div style="border-top:1px solid var(--border); margin:14px 0 12px;"></div>
+                <div style="font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:10px; font-weight:600;">Длина названия</div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="range" id="name-len-slider" min="15" max="120" step="5" value="50"
+                           style="flex:1; accent-color:var(--primary);">
+                    <span id="name-len-val" style="font-size:13px; color:var(--text-muted); min-width:30px;">50</span>
+                </div>
+                <div style="margin-top:4px; font-size:11px; color:var(--text-muted);">0 = показывать полностью</div>
+                <div style="display:flex; gap:8px; margin-top:14px;">
+                    <button onclick="resetColSettings()" class="btn btn-secondary btn-sm" style="flex:1;">Сброс</button>
+                    <button onclick="toggleColPanel()" class="btn btn-primary btn-sm" style="flex:1;">Готово</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -82,13 +114,13 @@
                         <input type="checkbox" id="select-all" title="Выбрать все"
                                style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent-to);">
                     </th>
-                    <th>OEM</th>
-                    <th>Артикул</th>
+                    <th data-col="oem">OEM</th>
+                    <th data-col="part">Артикул</th>
                     <th>Название</th>
-                    <th>Категория</th>
-                    <th>Закупочная</th>
-                    <th>{% if default_level %}{{ default_level.name }}{% else %}Розничная{% endif %}</th>
-                    <th>Остаток</th>
+                    <th data-col="category">Категория</th>
+                    <th data-col="purchase">Закупочная</th>
+                    <th data-col="retail">{% if default_level %}{{ default_level.name }}{% else %}Розничная{% endif %}</th>
+                    <th data-col="stock">Остаток</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -99,15 +131,15 @@
                         <input type="checkbox" class="product-cb" value="{{ product.pk }}"
                                style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent-to);">
                     </td>
-                    <td class="fw-bold text-accent">{{ product.oem_number }}</td>
-                    <td>{{ product.part_number|default:"—" }}</td>
+                    <td data-col="oem" class="fw-bold text-accent">{{ product.oem_number }}</td>
+                    <td data-col="part">{{ product.part_number|default:"—" }}</td>
                     <td>
-                        <a href="{% url 'product_detail' product.pk %}">{{ product.name|truncatechars:50 }}</a>
+                        <a href="{% url 'product_detail' product.pk %}" class="product-name-cell">{{ product.name }}</a>
                     </td>
-                    <td class="text-muted">{{ product.category.name|default:"—" }}</td>
-                    <td class="text-muted">{{ product.price_purchase|floatformat:0|intcomma }}</td>
-                    <td class="fw-bold">{{ product.price_retail|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
-                    <td>
+                    <td data-col="category" class="text-muted">{{ product.category.name|default:"—" }}</td>
+                    <td data-col="purchase" class="text-muted">{{ product.price_purchase|floatformat:0|intcomma }}</td>
+                    <td data-col="retail" class="fw-bold">{{ product.price_retail|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    <td data-col="stock">
                         {% if product.stock_quantity == 0 %}
                             <span class="badge badge-out">Нет</span>
                         {% elif product.stock_quantity <= 5 %}
@@ -177,48 +209,129 @@
 
 {% block extra_js %}
 <script>
-// Checkboxes & bulk print
+// ── Checkboxes & bulk print ──────────────────────────────────────────
 const selectAll = document.getElementById('select-all');
-const printBtn = document.getElementById('print-tags-btn');
-const countEl = document.getElementById('selected-count');
+const printBtn  = document.getElementById('print-tags-btn');
+const countEl   = document.getElementById('selected-count');
 
 function getChecked() {
     return Array.from(document.querySelectorAll('.product-cb:checked')).map(cb => cb.value);
 }
-
 function updatePrintBtn() {
     const ids = getChecked();
     countEl.textContent = ids.length;
     printBtn.style.display = ids.length > 0 ? '' : 'none';
 }
-
 if (selectAll) {
     selectAll.addEventListener('change', function() {
         document.querySelectorAll('.product-cb').forEach(cb => cb.checked = this.checked);
         updatePrintBtn();
     });
 }
-
-document.querySelectorAll('.product-cb').forEach(cb => {
-    cb.addEventListener('change', updatePrintBtn);
-});
+document.querySelectorAll('.product-cb').forEach(cb => cb.addEventListener('change', updatePrintBtn));
 
 function printSelectedTags() {
     const ids = getChecked();
     if (!ids.length) return;
-    const url = '{% url "print_price_tags" %}?' + ids.map(id => 'ids=' + id).join('&');
-    window.open(url, '_blank');
+    window.open('{% url "print_price_tags" %}?' + ids.map(id => 'ids=' + id).join('&'), '_blank');
 }
 
-// Barcode scanner focus — on catalog page press any char to auto-focus search
+// ── Barcode scanner auto-focus ───────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-    const search = document.getElementById('catalog-search');
-    if (!search) return;
-    if (document.activeElement === search) return;
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key.length === 1 && /[\w\d]/.test(e.key)) {
-        search.focus();
+    const s = document.getElementById('catalog-search');
+    if (!s || document.activeElement === s || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length === 1 && /[\w\d]/.test(e.key)) s.focus();
+});
+
+// ── Column settings (localStorage) ──────────────────────────────────
+const COL_KEY  = 'catalog_col_prefs_v2';
+const DEFAULTS = { oem:true, part:true, category:true, purchase:true, retail:true, stock:true, nameLen:50 };
+
+function loadPrefs() {
+    try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(COL_KEY) || '{}')); }
+    catch(e) { return Object.assign({}, DEFAULTS); }
+}
+function savePrefs(p) { localStorage.setItem(COL_KEY, JSON.stringify(p)); }
+
+function applyColVisibility(col, visible) {
+    document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
+        el.style.display = visible ? '' : 'none';
+    });
+}
+
+function applyNameLenSafe(len) {
+    document.querySelectorAll('.product-name-cell').forEach(el => {
+        if (!el.dataset.full) el.dataset.full = el.textContent.trim();
+        const full = el.dataset.full;
+        el.textContent = (len > 0 && full.length > len) ? full.slice(0, len) + '…' : full;
+        // <a> tag still keeps href even after textContent change
+    });
+}
+
+function applyAllPrefs(prefs) {
+    ['oem','part','category','purchase','retail','stock'].forEach(col => {
+        applyColVisibility(col, prefs[col] !== false);
+    });
+    applyNameLenSafe(prefs.nameLen || 0);
+
+    // Sync checkboxes in panel
+    document.querySelectorAll('.col-toggle').forEach(cb => {
+        cb.checked = prefs[cb.dataset.col] !== false;
+    });
+
+    // Sync slider
+    const slider = document.getElementById('name-len-slider');
+    const valEl  = document.getElementById('name-len-val');
+    if (slider) {
+        slider.value = prefs.nameLen || 0;
+        if (valEl) valEl.textContent = prefs.nameLen || 0;
+    }
+}
+
+// Panel toggle
+function toggleColPanel() {
+    const panel = document.getElementById('col-panel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+// Close panel on outside click
+document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('col-settings-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+        document.getElementById('col-panel').style.display = 'none';
     }
 });
+
+// Column toggle checkboxes
+document.querySelectorAll('.col-toggle').forEach(cb => {
+    cb.addEventListener('change', function() {
+        const prefs = loadPrefs();
+        prefs[this.dataset.col] = this.checked;
+        savePrefs(prefs);
+        applyColVisibility(this.dataset.col, this.checked);
+    });
+});
+
+// Name length slider
+const slider = document.getElementById('name-len-slider');
+if (slider) {
+    slider.addEventListener('input', function() {
+        const len = parseInt(this.value);
+        document.getElementById('name-len-val').textContent = len;
+        applyNameLenSafe(len);
+    });
+    slider.addEventListener('change', function() {
+        const prefs = loadPrefs();
+        prefs.nameLen = parseInt(this.value);
+        savePrefs(prefs);
+    });
+}
+
+function resetColSettings() {
+    savePrefs(Object.assign({}, DEFAULTS));
+    applyAllPrefs(DEFAULTS);
+}
+
+// Apply on load
+applyAllPrefs(loadPrefs());
 </script>
 {% endblock %}

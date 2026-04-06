@@ -67,6 +67,15 @@ def product_list(request):
     categories = Category.objects.filter(user=request.user)
     default_level = PriceLevel.get_default(request.user)
 
+    col_defs = [
+        {'key': 'oem',      'label': 'OEM номер'},
+        {'key': 'part',     'label': 'Артикул'},
+        {'key': 'category', 'label': 'Категория'},
+        {'key': 'purchase', 'label': 'Закупочная цена'},
+        {'key': 'retail',   'label': 'Розничная цена'},
+        {'key': 'stock',    'label': 'Остаток'},
+    ]
+
     context = {
         'page_obj': page_obj,
         'categories': categories,
@@ -76,6 +85,7 @@ def product_list(request):
         'sort': sort,
         'total_count': paginator.count,
         'default_level': default_level,
+        'col_defs': col_defs,
     }
     return render(request, 'catalog/list.html', context)
 
