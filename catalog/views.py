@@ -469,7 +469,7 @@ def import_save_preview(request):
 
     try:
         body = json.loads(request.body)
-        rows = body.get('rows', [])
+        rows = body if isinstance(body, list) else body.get('rows', [])
     except Exception:
         return JsonResponse({'ok': False, 'error': 'bad json'}, status=400)
 
