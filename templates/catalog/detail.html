@@ -66,6 +66,35 @@
             {% endif %}
         </div>
 
+        <!-- Price History -->
+        {% if price_history %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">История закупочной цены</h3>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th class="text-right">Цена</th>
+                            <th>Источник</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ph in price_history %}
+                        <tr>
+                            <td class="text-muted">{{ ph.changed_at|date:"d.m.Y H:i" }}</td>
+                            <td class="text-right fw-bold">{{ ph.price_purchase|floatformat:0 }} {{ request.user.currency_symbol }}</td>
+                            <td class="text-muted">{{ ph.note|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Stock Movements -->
         <div class="card">
             <div class="card-header">

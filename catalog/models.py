@@ -189,6 +189,32 @@ class Product(models.Model):
         return self.get_price()
 
 
+class PriceHistory(models.Model):
+    """Tracks purchase price changes for a product."""
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='price_history',
+        verbose_name='Товар'
+    )
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='price_history_records'
+    )
+    price_purchase = models.DecimalField('Закупочная цена', max_digits=12, decimal_places=2)
+    changed_at = models.DateTimeField('Дата изменения', auto_now_add=True)
+    note = models.CharField('Источник', max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = 'История цен'
+        verbose_name_plural = 'История цен'
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f'{self.product.oem_number}: {self.price_purchase} @ {self.changed_at.strftime("%d.%m.%Y")}'
+
+
 class ImportHistory(models.Model):
     user = models.ForeignKey('users.User', on_delete=models.CASCADE)
     filename = models.CharField('Имя файла', max_length=255)

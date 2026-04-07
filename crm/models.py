@@ -21,6 +21,9 @@ class Client(models.Model):
         help_text='Скидка применяется автоматически при создании заказа'
     )
     debt = models.DecimalField('Долг', max_digits=12, decimal_places=2, default=0.00)
+    portal_enabled = models.BooleanField('Доступ к порталу', default=False)
+    portal_password = models.CharField('Пароль портала', max_length=128, blank=True,
+                                       help_text='Хранится в хешированном виде')
     created_at = models.DateTimeField('Создан', auto_now_add=True)
     updated_at = models.DateTimeField('Обновлен', auto_now=True)
 

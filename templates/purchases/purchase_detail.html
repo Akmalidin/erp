@@ -6,7 +6,11 @@
 
 {% block navbar_actions %}
 {% if order.status == 'draft' %}
-<form method="post" action="{% url 'purchase_confirm' order.pk %}" style="display:inline;">
+<a href="{% url 'purchase_import' order.pk %}" class="btn btn-secondary">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+    Импорт Excel
+</a>
+<form method="post" action="{% url 'purchase_confirm' order.pk %}" style="display:inline; margin-left:8px;">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary"
             onclick="return confirm('Провести закупку? Остатки и закупочные цены будут обновлены.')">

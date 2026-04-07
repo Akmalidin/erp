@@ -81,6 +81,49 @@
     {% endif %}
 </div>
 
+<!-- Portal Access Management -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Доступ к клиентскому порталу</h3>
+        {% if client.portal_enabled %}
+        <span class="badge" style="background:#d1fae5;color:#065f46;">Активен</span>
+        {% else %}
+        <span class="badge" style="background:#fee2e2;color:#991b1b;">Отключён</span>
+        {% endif %}
+    </div>
+
+    {% if client.portal_enabled %}
+    <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
+        Клиент может войти на портал по телефону <strong>{{ client.phone }}</strong>.
+        Ссылка на портал: <a href="/portal/" target="_blank" style="color:var(--accent-to);">/portal/</a>
+    </p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <form method="post" action="{% url 'admin_portal_manage' client.pk %}" style="display:flex; gap:8px; align-items:center;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="change_password">
+            <input type="password" name="password" class="form-input" placeholder="Новый пароль" style="width:200px;" required minlength="4">
+            <button type="submit" class="btn btn-secondary btn-sm">Сменить пароль</button>
+        </form>
+        <form method="post" action="{% url 'admin_portal_manage' client.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="disable">
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Отключить доступ к порталу?')">Отключить доступ</button>
+        </form>
+    </div>
+    {% else %}
+    <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
+        Активируйте доступ, чтобы клиент мог просматривать заказы и делать новые через портал.
+        {% if not client.phone %}<br><strong style="color:var(--danger);">Укажите телефон клиента — он используется для входа.</strong>{% endif %}
+    </p>
+    <form method="post" action="{% url 'admin_portal_manage' client.pk %}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="enable">
+        <input type="password" name="password" class="form-input" placeholder="Задать пароль для клиента" style="width:240px;" required minlength="4">
+        <button type="submit" class="btn btn-primary btn-sm">Активировать доступ</button>
+    </form>
+    {% endif %}
+</div>
+
 <!-- Order History -->
 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
     <!-- Order History -->

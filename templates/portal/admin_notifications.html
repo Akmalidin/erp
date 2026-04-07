@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Уведомления портала — AutoParts CRM{% endblock %}
+{% block navbar_title %}Уведомления клиентского портала{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Уведомления портала</h1>
+</div>
+
+{% if page_obj %}
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Клиент</th>
+                <th>Событие</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for n in page_obj %}
+            <tr>
+                <td class="text-muted" style="white-space:nowrap;">{{ n.created_at|date:"d.m.Y H:i" }}</td>
+                <td class="fw-bold">{{ n.client.name }}</td>
+                <td>{{ n.text }}</td>
+                <td>
+                    {% if n.url %}
+                    <a href="{{ n.url }}" class="btn btn-secondary btn-sm">Перейти</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div style="display:flex;justify-content:center;gap:8px;margin-top:16px;">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm">← Назад</a>
+    {% endif %}
+    <span style="line-height:32px;color:var(--text-muted);">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm">Вперёд →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <p class="text-muted" style="padding:24px; text-align:center;">Уведомлений пока нет</p>
+</div>
+{% endif %}
+{% endblock %}

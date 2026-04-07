@@ -5,6 +5,13 @@
 {% block navbar_title %}Закупки{% endblock %}
 
 {% block navbar_actions %}
+<form method="post" action="{% url 'auto_purchase_create' %}" style="display:inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary" title="Создать закупку из товаров с низким остатком">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path></svg>
+        Авто-закуп
+    </button>
+</form>
 <a href="{% url 'purchase_create' %}" class="btn btn-primary">+ Новая закупка</a>
 {% endblock %}
 

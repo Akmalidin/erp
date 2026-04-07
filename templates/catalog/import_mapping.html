@@ -44,7 +44,7 @@
     </div>
 </div>
 
-<form method="post" action="{% url 'product_import_preview' %}">
+<form id="mapping-form" method="post" action="{% url 'product_import_preview' %}">
     {% csrf_token %}
     <div class="card">
         <div class="card-header border-bottom pb-2 mb-3">
@@ -109,7 +109,7 @@ function autoDetectAndSubmit() {
             sel.value = AUTO_MAP[field];
         }
     });
-    document.querySelector('form').submit();
+    document.getElementById('mapping-form').submit();
 }
 
 // Apply auto-map on page load (highlight auto-detected fields)

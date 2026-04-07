@@ -12,4 +12,6 @@ urlpatterns = [
     path('suppliers/<int:pk>/delete/', views.supplier_delete, name='supplier_delete'),
     path('api/products/', views.product_search_api, name='purchase_product_search'),
     path('add-product/<int:product_pk>/', views.add_product_to_purchase, name='add_product_to_purchase'),
+    path('auto-create/', views.auto_purchase_create, name='auto_purchase_create'),
+    path('<int:pk>/import/', views.purchase_import, name='purchase_import'),
 ]

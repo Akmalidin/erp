@@ -3,6 +3,7 @@ Purchases views: supplier CRUD, purchase order create/confirm/cancel.
 """
 import json
 from decimal import Decimal
+from django.db import models
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -11,7 +12,7 @@ from django.http import JsonResponse
 
 from .models import Supplier, PurchaseOrder, PurchaseItem
 from .forms import SupplierForm, PurchaseOrderForm
-from catalog.models import Product
+from catalog.models import Product, PriceHistory
 from warehouse.models import StockMovement
 
 
@@ -181,9 +182,18 @@ def purchase_confirm(request, pk):
     if request.method == 'POST':
         for item in order.items.select_related('product').all():
             if item.product:
+                old_price = item.product.price_purchase
                 item.product.stock_quantity += item.quantity
                 item.product.price_purchase = item.price
                 item.product.save(update_fields=['stock_quantity', 'price_purchase'])
+
+                if old_price != item.price:
+                    PriceHistory.objects.create(
+                        product=item.product,
+                        user=request.user,
+                        price_purchase=item.price,
+                        note=f'Закупка #{order.pk}'
+                    )
 
                 StockMovement.objects.create(
                     user=request.user,
@@ -268,6 +278,130 @@ def add_product_to_purchase(request, product_pk):
 
     messages.success(request, f'"{product.name}" добавлен в закупку #{order.pk}')
     return redirect('product_detail', pk=product_pk)
+
+
+@login_required
+def auto_purchase_create(request):
+    """Create a draft purchase order from all low-stock products."""
+    if request.method != 'POST':
+        return redirect('purchase_list')
+
+    low_stock = Product.objects.filter(
+        user=request.user,
+        is_active=True,
+        min_stock__gt=0,
+        stock_quantity__lte=models.F('min_stock')
+    )
+
+    if not low_stock.exists():
+        messages.info(request, 'Нет товаров с низким остатком (остаток ≤ мин. остаток).')
+        return redirect('purchase_list')
+
+    order = PurchaseOrder.objects.create(user=request.user, status='draft', total_price=Decimal('0'))
+    total = Decimal('0')
+    count = 0
+    for product in low_stock:
+        need_qty = product.min_stock - product.stock_quantity + product.min_stock
+        price = product.price_purchase or Decimal('0')
+        PurchaseItem.objects.create(order=order, product=product, quantity=need_qty, price=price)
+        total += need_qty * price
+        count += 1
+
+    order.total_price = total
+    order.save(update_fields=['total_price'])
+
+    messages.success(request, f'Создан авто-заказ #{order.pk} из {count} товаров с низким остатком.')
+    return redirect('purchase_detail', pk=order.pk)
+
+
+@login_required
+def purchase_import(request, pk):
+    """Upload Excel/CSV to fill a purchase order with items."""
+    order = get_object_or_404(PurchaseOrder, pk=pk, user=request.user, status='draft')
+
+    if request.method == 'POST' and request.FILES.get('file'):
+        import pandas as pd
+        import tempfile
+
+        f = request.FILES['file']
+        suffix = '.xlsx' if f.name.endswith(('.xlsx', '.xls')) else '.csv'
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            for chunk in f.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        try:
+            if suffix == '.csv':
+                df = pd.read_csv(tmp_path, dtype=str)
+            else:
+                df = pd.read_excel(tmp_path, dtype=str)
+        except Exception as e:
+            messages.error(request, f'Ошибка чтения файла: {e}')
+            return redirect('purchase_import', pk=pk)
+        finally:
+            try:
+                import os
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+        # Get column mapping from POST
+        col_oem = request.POST.get('col_oem', '')
+        col_name = request.POST.get('col_name', '')
+        col_qty = request.POST.get('col_qty', '')
+        col_price = request.POST.get('col_price', '')
+
+        columns = list(df.columns)
+        added = 0
+        skipped = 0
+
+        for _, row in df.iterrows():
+            def cell(col):
+                if col and col in row:
+                    v = str(row[col]).strip()
+                    return '' if v.lower() in ('nan', 'none', '') else v
+                return ''
+
+            oem = cell(col_oem)
+            name = cell(col_name)
+            try:
+                qty = max(1, int(float(cell(col_qty) or '1')))
+            except (ValueError, TypeError):
+                qty = 1
+            try:
+                price = Decimal(cell(col_price).replace(',', '.') or '0')
+            except Exception:
+                price = Decimal('0')
+
+            # Find product by OEM or name
+            product = None
+            if oem:
+                product = Product.objects.filter(user=request.user, oem_number__iexact=oem).first()
+            if not product and name:
+                product = Product.objects.filter(user=request.user, name__iexact=name).first()
+
+            if product:
+                item, created = PurchaseItem.objects.get_or_create(
+                    order=order, product=product,
+                    defaults={'quantity': qty, 'price': price}
+                )
+                if not created:
+                    item.quantity += qty
+                    if price:
+                        item.price = price
+                    item.save()
+                added += 1
+            else:
+                skipped += 1
+
+        order.total_price = sum(i.quantity * i.price for i in order.items.all())
+        order.save(update_fields=['total_price'])
+
+        messages.success(request, f'Импорт завершён: добавлено {added}, пропущено (не найдено) {skipped}.')
+        return redirect('purchase_detail', pk=pk)
+
+    # GET — show upload form with column selection
+    return render(request, 'purchases/purchase_import.html', {'order': order})
 
 
 @login_required

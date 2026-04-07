@@ -123,6 +123,29 @@
             <p class="text-muted text-center mt-2">{{ items|length }} позиций</p>
         </div>
 
+        {% with notes=order.portal_notes.all %}
+        {% if notes %}
+        <div class="card mt-2">
+            <h3 class="card-title mb-2" style="color:var(--accent-to);">Заметки клиента</h3>
+            {% for note in notes %}
+            <div style="border-left:3px solid {% if note.author_type == 'admin' %}var(--success){% else %}var(--accent-to){% endif %}; padding:8px 12px; margin-bottom:8px; border-radius:0 6px 6px 0; background:var(--bg-secondary);">
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">
+                    {% if note.author_type == 'admin' %}Вы{% else %}{{ note.client.name }}{% endif %}
+                    {% if note.item %} · к «{{ note.item.product.name }}»{% endif %}
+                    · {{ note.created_at|date:"d.m.Y H:i" }}
+                </div>
+                <div style="font-size:13px;">{{ note.text }}</div>
+            </div>
+            {% endfor %}
+            <form method="post" action="{% url 'admin_reply_note' notes.first.pk %}" style="display:flex; gap:8px; margin-top:8px;">
+                {% csrf_token %}
+                <input type="text" name="text" class="form-input" placeholder="Ответить клиенту..." style="flex:1;">
+                <button type="submit" class="btn btn-primary btn-sm">Ответить</button>
+            </form>
+        </div>
+        {% endif %}
+        {% endwith %}
+
         <div class="card mt-2">
             <h3 class="card-title mb-2">Изменить статус</h3>
             <form method="post" action="{% url 'order_status_update' order.pk %}">

@@ -4,7 +4,7 @@ Warehouse views: stock overview and movement history.
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, F
 from django.core.paginator import Paginator
 
 from catalog.models import Product
@@ -206,23 +206,29 @@ def stock_bulk_add(request):
         try:
             add_qty = int(request.POST.get('quantity', 0))
             note = request.POST.get('note', 'Массовое пополнение')
-            
+
             if add_qty > 0:
-                count = 0
-                for product in products:
-                    product.stock_quantity += add_qty
-                    product.save(update_fields=['stock_quantity'])
-                    
-                    StockMovement.objects.create(
-                        user=request.user,
-                        product=product,
-                        warehouse=default_warehouse,
-                        change=add_qty,
-                        movement_type='manual',
-                        note=note,
-                    )
-                    count += 1
-                
+                # Collect product IDs before update (queryset is lazy)
+                product_ids = list(products.values_list('id', flat=True))
+                count = len(product_ids)
+
+                if count > 0:
+                    # Single SQL UPDATE for all products at once
+                    products.update(stock_quantity=F('stock_quantity') + add_qty)
+
+                    # Bulk create movements (batch of 500 to avoid SQLite limits)
+                    StockMovement.objects.bulk_create([
+                        StockMovement(
+                            user=request.user,
+                            product_id=pid,
+                            warehouse=default_warehouse,
+                            change=add_qty,
+                            movement_type='manual',
+                            note=note,
+                        )
+                        for pid in product_ids
+                    ], batch_size=500)
+
                 messages.success(request, f'Остатки обновлены для {count} товаров: +{add_qty} шт.')
             else:
                 messages.info(request, 'Количество должно быть больше нуля')

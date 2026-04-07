@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 from django.utils import timezone
 
-from .models import Product, Category, PriceLevel, CarMake, CarModel, ImportHistory
+from .models import Product, Category, PriceLevel, CarMake, CarModel, ImportHistory, PriceHistory
 from .forms import ProductForm, CategoryForm, ImportForm, PriceLevelForm
 from .utils import get_smart_search_filter
 from warehouse.models import StockMovement
@@ -98,11 +98,13 @@ def product_detail(request, pk):
     movements = StockMovement.objects.filter(product=product, user=request.user).order_by('-created_at')[:20]
     all_prices = product.get_all_prices()
     draft_purchases = PurchaseOrder.objects.filter(user=request.user, status='draft').select_related('supplier')
+    price_history = PriceHistory.objects.filter(product=product).order_by('-changed_at')[:30]
     context = {
         'product': product,
         'movements': movements,
         'all_prices': all_prices,
         'draft_purchases': draft_purchases,
+        'price_history': price_history,
     }
     return render(request, 'catalog/detail.html', context)
 

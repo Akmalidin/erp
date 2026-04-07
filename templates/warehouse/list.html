@@ -143,7 +143,7 @@
         <div class="alert alert-info mb-3" style="font-size: 0.9rem;">
             Количество будет добавлено к <strong>{{ total_count }}</strong> товарам (с учетом текущих фильтров).
         </div>
-        <form method="post" action="{% url 'stock_bulk_add' %}?q={{ query }}&stock={{ stock_filter }}">
+        <form method="post" action="{% url 'stock_bulk_add' %}?q={{ query }}&stock={{ stock_filter|default:'' }}">
             {% csrf_token %}
             <div class="form-group">
                 <label class="form-label">Сколько единиц добавить?</label>
@@ -158,6 +158,7 @@
                 <button type="button" class="btn btn-secondary" onclick="closeBulkAddModal()">Отмена</button>
             </div>
         </form>
+    </div>
 </div>
 
 <script>

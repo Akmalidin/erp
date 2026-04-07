@@ -1,0 +1,84 @@
+{% extends 'portal/base.html' %}
+{% load humanize %}
+
+{% block title %}Каталог — Портал{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Каталог товаров</h1>
+        <p class="page-subtitle">Выберите товары и добавьте в корзину</p>
+    </div>
+    <a href="{% url 'portal_cart' %}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 001.99 1.61h9.72a2 2 0 001.99-1.61L23 6H6"></path></svg>
+        Корзина {% if cart_count %}<span class="cart-badge" style="background:var(--primary);color:#fff;">{{ cart_count }}</span>{% endif %}
+    </a>
+</div>
+
+<!-- Search & filters -->
+<div class="card" style="margin-bottom:16px;">
+    <form method="get" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <input type="text" name="q" value="{{ query }}" class="form-input" placeholder="Поиск по названию или OEM..."
+               style="flex:1; min-width:200px;">
+        <select name="category" class="form-input" style="width:200px;" onchange="this.form.submit()">
+            <option value="">Все категории</option>
+            {% for cat in categories %}
+            <option value="{{ cat.pk }}" {% if category_id == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Найти</button>
+        {% if query or category_id %}
+        <a href="{% url 'portal_catalog' %}" class="btn btn-secondary">Сбросить</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if products_list %}
+<div class="product-grid">
+    {% for product in products_list %}
+    <div class="product-card">
+        <div class="product-card-oem">{{ product.oem_number }}</div>
+        <div class="product-card-name">{{ product.name }}</div>
+        {% if product.brand %}<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">{{ product.brand }}</div>{% endif %}
+        <div class="product-card-price">{{ product.display_price|floatformat:0|intcomma }} {{ currency }}</div>
+        <div class="product-card-stock">
+            {% if product.stock_quantity > 0 %}
+                <span style="color:var(--success);">В наличии: {{ product.stock_quantity }} шт</span>
+            {% else %}
+                <span style="color:var(--danger);">Нет в наличии</span>
+            {% endif %}
+        </div>
+        <form method="post" action="{% url 'portal_cart_add' product.pk %}" style="display:flex; gap:8px; align-items:center;">
+            {% csrf_token %}
+            <input type="number" name="qty" value="1" min="1" max="{{ product.stock_quantity|default:999 }}"
+                   class="form-input" style="width:70px; padding:6px 10px;">
+            <button type="submit" class="btn btn-primary btn-sm" style="flex:1; justify-content:center;">
+                + В корзину
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&q={{ query }}&category={{ category_id|default:'' }}" class="page-link">← Назад</a>
+    {% endif %}
+    <span class="page-link active">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&q={{ query }}&category={{ category_id|default:'' }}" class="page-link">Вперёд →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="7" height="7"></rect><rect x="15" y="3" width="7" height="7"></rect><rect x="15" y="14" width="7" height="7"></rect><rect x="2" y="14" width="7" height="7"></rect></svg>
+        <h3>Товары не найдены</h3>
+        <p>Попробуйте изменить параметры поиска</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

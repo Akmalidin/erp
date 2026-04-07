@@ -1,0 +1,81 @@
+{% extends 'portal/base.html' %}
+{% load humanize %}
+
+{% block title %}Корзина — Портал{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Корзина</h1>
+        <p class="page-subtitle">Проверьте товары перед оформлением заказа</p>
+    </div>
+    <a href="{% url 'portal_catalog' %}" class="btn btn-secondary">← В каталог</a>
+</div>
+
+{% if items %}
+<div style="display:grid; grid-template-columns: 1fr 320px; gap:20px; align-items:start;">
+    <div>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th style="text-align:center;">Кол-во</th>
+                        <th style="text-align:right;">Цена</th>
+                        <th style="text-align:right;">Сумма</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:600; font-size:14px;">{{ item.product.name }}</div>
+                            <div style="font-size:12px; color:var(--text-muted);">{{ item.product.oem_number }}</div>
+                        </td>
+                        <td style="text-align:center;">{{ item.qty }}</td>
+                        <td style="text-align:right; color:var(--text-muted);">{{ item.price|floatformat:0|intcomma }}</td>
+                        <td style="text-align:right; font-weight:600;">{{ item.subtotal|floatformat:0|intcomma }} {{ currency }}</td>
+                        <td>
+                            <a href="{% url 'portal_cart_remove' item.product.pk %}"
+                               style="color:var(--danger); font-size:18px; text-decoration:none;"
+                               onclick="return confirm('Убрать из корзины?')">✕</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div>
+        <div class="card">
+            <div class="card-title">Итого</div>
+            <div style="font-size:28px; font-weight:700; color:var(--primary); margin-bottom:20px;">
+                {{ total|floatformat:0|intcomma }} {{ currency }}
+            </div>
+            <form method="post" action="{% url 'portal_checkout' %}">
+                {% csrf_token %}
+                <div style="margin-bottom:16px;">
+                    <label class="form-label">Комментарий к заказу (необязательно)</label>
+                    <textarea name="note" class="form-input" rows="3" placeholder="Уточнения, пожелания по доставке..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-size:16px;">
+                    Оформить заказ
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 001.99 1.61h9.72a2 2 0 001.99-1.61L23 6H6"></path></svg>
+        <h3>Корзина пуста</h3>
+        <p>Добавьте товары из каталога</p>
+        <a href="{% url 'portal_catalog' %}" class="btn btn-primary" style="margin-top:16px;">Перейти в каталог</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

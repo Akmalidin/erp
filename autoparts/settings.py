@@ -2,10 +2,24 @@
 Django settings for AutoParts CRM project.
 """
 import os
+import sys
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ── Frozen-exe overrides (PyInstaller) ──────────────────────────────────────
+# run_server.py sets APP_BASE_DIR (bundled app files, read-only) and
+# APP_DATA_DIR (writable user data: db, media) before importing Django.
+if getattr(sys, 'frozen', False):
+    _app_base = os.environ.get('APP_BASE_DIR')
+    _app_data = os.environ.get('APP_DATA_DIR')
+    if _app_base:
+        BASE_DIR = Path(_app_base)
+    APP_DATA_DIR = Path(_app_data) if _app_data else BASE_DIR
+else:
+    APP_DATA_DIR = BASE_DIR
+# ────────────────────────────────────────────────────────────────────────────
 
 # SECURITY — read from environment in production, fallback for local dev
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-autoparts-crm-key-change-in-production-2024')
@@ -31,6 +45,7 @@ INSTALLED_APPS = [
     'crm.apps.CrmConfig',
     'reports.apps.ReportsConfig',
     'purchases.apps.PurchasesConfig',
+    'portal.apps.PortalConfig',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'portal.context_processors.portal_unread',
             ],
         },
     },
@@ -68,7 +84,7 @@ WSGI_APPLICATION = 'autoparts.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': APP_DATA_DIR / 'db.sqlite3',
     }
 }
 
@@ -103,13 +119,22 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+# In frozen exe mode static files are pre-collected and bundled inside
+# BASE_DIR/staticfiles (populated by build.bat → collectstatic).
+# STATICFILES_DIRS must be empty when running from the frozen bundle
+# because the 'static' source folder is not separately present.
+_frozen = getattr(sys, 'frozen', False)
+STATICFILES_DIRS = [] if _frozen else [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = (
+    'whitenoise.storage.CompressedStaticFilesStorage'
+    if _frozen
+    else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+)
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = APP_DATA_DIR / 'media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

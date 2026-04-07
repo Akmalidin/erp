@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}Импорт в закупку #{{ order.pk }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}Импорт товаров в закупку{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Импорт из Excel в закупку #{{ order.pk }}</h1>
+        <p class="page-subtitle">Загрузите Excel/CSV файл с позициями. Товары ищутся по OEM или названию.</p>
+    </div>
+    <a href="{% url 'purchase_detail' order.pk %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<div class="card" style="max-width:700px;">
+    <form method="post" enctype="multipart/form-data" id="import-form">
+        {% csrf_token %}
+
+        <!-- File upload -->
+        <div style="margin-bottom:20px;">
+            <label class="fw-bold" style="display:block; margin-bottom:8px;">Файл (Excel .xlsx или CSV)</label>
+            <input type="file" name="file" id="file-input" accept=".xlsx,.xls,.csv" class="form-input" required
+                   onchange="previewColumns(this)">
+            <p class="text-muted" style="font-size:12px; margin-top:4px;">Файл будет обработан на сервере. Товары сопоставляются по OEM-номеру или названию.</p>
+        </div>
+
+        <!-- Column mapping (filled after file preview or manually) -->
+        <div id="mapping-section">
+            <h3 style="margin-bottom:16px; font-size:15px;">Укажите столбцы файла</h3>
+            <div style="display:grid; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Столбец OEM номера</label>
+                        <input type="text" name="col_oem" id="col_oem" class="form-input" placeholder="напр. OEM или А" list="col-suggestions">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Столбец названия</label>
+                        <input type="text" name="col_name" id="col_name" class="form-input" placeholder="напр. Название" list="col-suggestions">
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Столбец количества</label>
+                        <input type="text" name="col_qty" id="col_qty" class="form-input" placeholder="напр. Кол-во" list="col-suggestions">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Столбец цены</label>
+                        <input type="text" name="col_price" id="col_price" class="form-input" placeholder="напр. Цена" list="col-suggestions">
+                    </div>
+                </div>
+            </div>
+            <datalist id="col-suggestions"></datalist>
+        </div>
+
+        <!-- File preview info -->
+        <div id="preview-info" style="display:none; margin-top:16px; padding:12px; background:var(--bg-secondary); border-radius:8px;">
+            <span class="text-muted" style="font-size:13px;" id="preview-text"></span>
+        </div>
+
+        <div style="margin-top:24px; display:flex; gap:12px; justify-content:flex-end;">
+            <a href="{% url 'purchase_detail' order.pk %}" class="btn btn-secondary">Отмена</a>
+            <button type="submit" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Импортировать
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+const OEM_HINTS = ['oem', 'oem номер', 'артикул', 'номер', 'part number', 'каталожный'];
+const NAME_HINTS = ['название', 'наименование', 'name', 'товар', 'деталь'];
+const QTY_HINTS = ['кол', 'qty', 'количество', 'остаток', 'stock'];
+const PRICE_HINTS = ['цена', 'price', 'стоимость', 'сумма', 'закупочная'];
+
+function autoFill(columns) {
+    function best(hints) {
+        for (const col of columns) {
+            const low = col.toLowerCase();
+            if (hints.some(h => low.includes(h) || h.includes(low))) return col;
+        }
+        return '';
+    }
+    document.getElementById('col_oem').value = best(OEM_HINTS);
+    document.getElementById('col_name').value = best(NAME_HINTS);
+    document.getElementById('col_qty').value = best(QTY_HINTS);
+    document.getElementById('col_price').value = best(PRICE_HINTS);
+
+    // Fill datalist
+    const dl = document.getElementById('col-suggestions');
+    dl.innerHTML = '';
+    columns.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        dl.appendChild(opt);
+    });
+
+    document.getElementById('preview-info').style.display = '';
+    document.getElementById('preview-text').textContent = 'Колонки: ' + columns.join(', ');
+}
+
+function previewColumns(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.csv')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const firstLine = text.split('\n')[0];
+            // Try comma, semicolon, tab
+            let sep = ',';
+            if ((firstLine.match(/;/g)||[]).length > (firstLine.match(/,/g)||[]).length) sep = ';';
+            if ((firstLine.match(/\t/g)||[]).length > (firstLine.match(/,/g)||[]).length) sep = '\t';
+            const cols = firstLine.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+            autoFill(cols);
+        };
+        reader.readAsText(file);
+    }
+    // For xlsx we can't read in browser easily, just show hint
+    else {
+        document.getElementById('preview-info').style.display = '';
+        document.getElementById('preview-text').textContent = 'Excel файл загружен. Укажите названия столбцов вручную или введите после загрузки.';
+    }
+}
+</script>
+{% endblock %}

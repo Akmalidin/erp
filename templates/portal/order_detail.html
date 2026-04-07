@@ -1,0 +1,154 @@
+{% extends 'portal/base.html' %}
+{% load humanize %}
+
+{% block title %}Заказ #{{ order.pk }} — Портал{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Заказ #{{ order.pk }}</h1>
+        <p class="page-subtitle">{{ order.created_at|date:"d.m.Y H:i" }}</p>
+    </div>
+    <a href="{% url 'portal_dashboard' %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start;">
+
+    <!-- Left: items + notes -->
+    <div>
+        <div class="card" style="padding:0; overflow:hidden; margin-bottom:16px;">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-weight:600;">Состав заказа</span>
+                <span style="font-size:13px; color:var(--text-muted);">{{ items.count }} позиций</span>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>OEM</th>
+                        <th>Наименование</th>
+                        <th style="text-align:center;">Кол-во</th>
+                        <th style="text-align:right;">Цена</th>
+                        <th style="text-align:right;">Сумма</th>
+                        <th width="40px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr id="item-{{ item.pk }}">
+                        <td style="font-size:12px; color:var(--text-muted);">{{ item.product.oem_number|default:"—" }}</td>
+                        <td>{{ item.product.name|default:"Товар удалён" }}</td>
+                        <td style="text-align:center;">{{ item.quantity }}</td>
+                        <td style="text-align:right;">{{ item.price|floatformat:0 }}</td>
+                        <td style="text-align:right; font-weight:600;">{{ item.total|floatformat:0 }} {{ client.user.currency_symbol }}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="openNoteModal({{ item.pk }}, '{{ item.product.name|default:"Позиция"|escapejs }}')"
+                                    title="Оставить заметку к позиции" style="padding:4px 8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Notes -->
+        <div class="card">
+            <div class="card-title">Переписка с менеджером</div>
+
+            {% if notes %}
+                {% for note in notes %}
+                <div class="note-block {% if note.author_type == 'admin' %}note-admin{% endif %}">
+                    <div class="note-meta">
+                        {% if note.author_type == 'admin' %}Менеджер{% else %}{{ client.name }}{% endif %}
+                        {% if note.item %} · к позиции «{{ note.item.product.name }}»{% endif %}
+                        · {{ note.created_at|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="note-text">{{ note.text }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Заметок пока нет</p>
+            {% endif %}
+
+            <!-- Add note form -->
+            <form method="post" style="margin-top:16px;" id="note-form">
+                {% csrf_token %}
+                <input type="hidden" name="item_id" id="note-item-id">
+                <div id="note-item-label" style="font-size:13px; color:var(--primary); margin-bottom:8px; display:none;">
+                    Заметка к позиции: <strong id="note-item-name"></strong>
+                    <button type="button" onclick="clearItemNote()" style="background:none;border:none;cursor:pointer;color:var(--danger);margin-left:8px;">✕</button>
+                </div>
+                <div style="display:flex; gap:10px; align-items:flex-end;">
+                    <div style="flex:1;">
+                        <label class="form-label">Ваша заметка</label>
+                        <textarea name="text" class="form-input" rows="2" placeholder="Напишите вопрос или комментарий менеджеру..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right: order info -->
+    <div>
+        <div class="card">
+            <div class="card-title">Информация о заказе</div>
+            <div style="display:flex; flex-direction:column; gap:12px; font-size:14px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Статус</span>
+                    <span>
+                        {% if order.status == 'new' %}<span class="badge badge-new">Новый</span>
+                        {% elif order.status == 'processing' %}<span class="badge badge-processing">В обработке</span>
+                        {% elif order.status == 'completed' %}<span class="badge badge-completed">Завершён</span>
+                        {% elif order.status == 'cancelled' %}<span class="badge badge-cancelled">Отменён</span>
+                        {% elif order.status == 'returned' %}<span class="badge badge-returned">Возврат</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Оплата</span>
+                    <span>{{ order.get_payment_method_display }}</span>
+                </div>
+                {% if order.discount_type != 'none' and order.discount_value %}
+                <div style="display:flex; justify-content:space-between; color:var(--danger);">
+                    <span>Скидка</span>
+                    <span>−{{ order.discount_amount|floatformat:0 }} {{ client.user.currency_symbol }}</span>
+                </div>
+                {% endif %}
+                <div style="display:flex; justify-content:space-between; font-size:18px; font-weight:700; padding-top:8px; border-top:1px solid var(--border);">
+                    <span>Итого</span>
+                    <span style="color:var(--primary);">{{ order.total_price|floatformat:0|intcomma }} {{ client.user.currency_symbol }}</span>
+                </div>
+                {% if order.debt > 0 %}
+                <div style="display:flex; justify-content:space-between; color:var(--danger);">
+                    <span>К оплате</span>
+                    <span>{{ order.debt|floatformat:0|intcomma }} {{ client.user.currency_symbol }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:0;">
+            <a href="{% url 'portal_catalog' %}" class="btn btn-primary" style="width:100%; justify-content:center;">
+                Оформить новый заказ
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Item note modal -->
+<script>
+function openNoteModal(itemId, itemName) {
+    document.getElementById('note-item-id').value = itemId;
+    document.getElementById('note-item-name').textContent = itemName;
+    document.getElementById('note-item-label').style.display = '';
+    document.querySelector('[name=text]').focus();
+    document.querySelector('[name=text]').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function clearItemNote() {
+    document.getElementById('note-item-id').value = '';
+    document.getElementById('note-item-label').style.display = 'none';
+}
+</script>
+{% endblock %}
