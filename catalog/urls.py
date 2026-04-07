@@ -10,6 +10,7 @@ urlpatterns = [
     path('import/', views.product_import, name='product_import'),
     path('import/mapping/', views.product_import_mapping, name='product_import_mapping'),
     path('import/preview/', views.product_import_preview, name='product_import_preview'),
+    path('import/save-preview/', views.import_save_preview, name='import_save_preview'),
     path('import/process/', views.product_import_process, name='product_import_process'),
     path('import/history/', views.import_history_list, name='import_history_list'),
     path('import/history/<int:pk>/', views.import_history_detail, name='import_history_detail'),

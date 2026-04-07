@@ -459,6 +459,31 @@ def product_import_preview(request):
 
 
 @login_required
+def import_save_preview(request):
+    """AJAX: save edited rows JSON to a temp file, return key in session."""
+    import os, json, tempfile
+    from django.http import JsonResponse
+
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+
+    try:
+        body = json.loads(request.body)
+        rows = body.get('rows', [])
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'bad json'}, status=400)
+
+    # Write edited rows to a temp pickle so process view can read them
+    import pickle
+    tmp = tempfile.NamedTemporaryFile(suffix='.edited.pkl', delete=False)
+    pickle.dump(rows, tmp)
+    tmp.close()
+
+    request.session['import_edited_file'] = tmp.name
+    return JsonResponse({'ok': True})
+
+
+@login_required
 def product_import_process(request):
     """Step 3: Process the import — accepts either edited JSON rows or raw mapping."""
     import os, json
@@ -471,8 +496,28 @@ def product_import_process(request):
                   'stock_quantity', 'brand', 'category', 'car_make', 'car_model']
 
     edited_json = request.POST.get('edited_rows_json', '')
-    if edited_json:
-        # Path A: data comes from editable preview table
+    edited_file = request.session.pop('import_edited_file', None)
+
+    if edited_file and os.path.exists(edited_file):
+        # Path A1: AJAX-saved temp file (avoids 413 on large price lists)
+        import pickle
+        try:
+            iter_rows = pickle.load(open(edited_file, 'rb'))
+        except Exception:
+            messages.error(request, 'Ошибка данных формы.')
+            return redirect('product_import')
+        try:
+            os.remove(edited_file)
+        except OSError:
+            pass
+        original_name = request.session.pop('import_original_name', 'файл')
+        request.session.pop('import_tmp_file', None)
+
+        def get_str(row, fk):
+            return str(row.get(fk, '') or '').strip()
+
+    elif edited_json:
+        # Path A2: small price list sent directly in POST body
         try:
             iter_rows = json.loads(edited_json)
         except json.JSONDecodeError:

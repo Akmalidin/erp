@@ -14,6 +14,7 @@
 <form id="preview-form" method="post" action="{% url 'product_import_process' %}">
     {% csrf_token %}
     <input type="hidden" name="edited_rows_json" id="edited-rows-input">
+    <input type="hidden" name="use_session" id="use-session-input" value="0">
 
     <div class="card mb-3">
         <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
@@ -214,8 +215,34 @@ function submitImport() {
         alert('Нет строк для импорта.');
         return;
     }
-    document.getElementById('edited-rows-input').value = JSON.stringify(validRows);
-    document.getElementById('preview-form').submit();
+
+    const btn = document.querySelector('[onclick="submitImport()"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Отправка...'; }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const jsonStr = JSON.stringify(validRows);
+
+    // Try AJAX save first (avoids 413 for large files)
+    fetch('{% url "import_save_preview" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: jsonStr,
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            // Data saved to temp file on server — submit empty form
+            document.getElementById('use-session-input').value = '1';
+            document.getElementById('preview-form').submit();
+        } else {
+            throw new Error('save failed');
+        }
+    })
+    .catch(function() {
+        // Fallback: send JSON directly in POST body (may fail on very large files)
+        document.getElementById('edited-rows-input').value = jsonStr;
+        document.getElementById('preview-form').submit();
+    });
 }
 
 // Init
