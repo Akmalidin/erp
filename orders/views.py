@@ -445,15 +445,9 @@ def print_receipt(request, pk):
 @login_required
 def print_invoice(request, pk):
     """Print A4 invoice/nakladnaya."""
-    import traceback
-    from django.http import HttpResponse
-    try:
-        order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
-        items = order.items.select_related('product').all()
-        return render(request, 'orders/print_invoice.html', {'order': order, 'items': items})
-    except Exception:
-        err = traceback.format_exc()
-        return HttpResponse(f'<pre style="color:red">{err}</pre>', status=500)
+    order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
+    items = order.items.select_related('product').all()
+    return render(request, 'orders/print_invoice.html', {'order': order, 'items': items})
 
 
 @login_required

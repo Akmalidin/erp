@@ -63,8 +63,14 @@
         </div>
         <div class="info-block" style="padding-left: 20px;">
             <div class="fw-bold mb-1">Покупатель:</div>
-            <div>{{ order.client.company_name|default:order.client.name|default:"Розничный покупатель" }}</div>
-            {% if order.client.phone %}<div>Тел: {{ order.client.phone }}</div>{% endif %}
+            <div>
+                {% if order.client %}
+                    {{ order.client.company_name|default:order.client.name|default:"Розничный покупатель" }}
+                {% else %}
+                    Розничный покупатель
+                {% endif %}
+            </div>
+            {% if order.client and order.client.phone %}<div>Тел: {{ order.client.phone }}</div>{% endif %}
         </div>
     </div>
 
