@@ -432,15 +432,24 @@ def product_import_preview(request):
     def get_val(row, fk):
         if fk not in user_mapping:
             return ''
-        v = row.iloc[user_mapping[fk]]
-        if pd.isna(v):
+        try:
+            v = row.iloc[user_mapping[fk]]
+            try:
+                if pd.isna(v):
+                    return ''
+            except (ValueError, TypeError):
+                pass
+            s = str(v).strip()
+            return '' if s.lower() == 'nan' else s
+        except Exception:
             return ''
-        s = str(v).strip()
-        return '' if s.lower() == 'nan' else s
 
     rows = []
     for _, row in df.iterrows():
-        rows.append({fk: get_val(row, fk) for fk in field_keys})
+        try:
+            rows.append({fk: get_val(row, fk) for fk in field_keys})
+        except Exception:
+            rows.append({fk: '' for fk in field_keys})
 
     return render(request, 'catalog/import_preview.html', {
         'rows_json': json.dumps(rows, ensure_ascii=False),
