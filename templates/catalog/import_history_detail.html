@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ record.filename }} — История импорта{% endblock %}
+{% block navbar_title %}Просмотр прайса{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ record.filename }}</h1>
+        <p class="page-subtitle">
+            Импорт {{ record.created_at|date:"d.m.Y H:i" }} &nbsp;·&nbsp;
+            Всего {{ record.total_rows }} строк &nbsp;·&nbsp;
+            <span class="text-success">+{{ record.created_count }} новых</span> &nbsp;·&nbsp;
+            <span style="color:var(--warning, #f59e0b);">↻ {{ record.updated_count }} обновлено</span>
+            {% if record.errors_count %}&nbsp;·&nbsp;<span class="text-danger">{{ record.errors_count }} ошибок</span>{% endif %}
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'import_history_list' %}" class="btn btn-secondary">← Назад</a>
+    </div>
+</div>
+
+{% if rows %}
+<div class="card">
+    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <input type="text" id="search-input" class="form-input" placeholder="Поиск по названию, OEM, артикулу..." style="max-width:320px; font-size:13px;" oninput="filterRows(this.value)">
+        <span id="count-label" style="font-size:13px; color:var(--text-muted);">{{ rows|length }} строк</span>
+    </div>
+
+    <div id="pagination-bar" style="display:flex; gap:6px; align-items:center; padding:0 0 10px 0; flex-wrap:wrap;"></div>
+
+    <div style="overflow-x:auto;">
+        <table class="data-table" style="font-size:13px; min-width:800px;">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th style="min-width:180px;">Название</th>
+                    <th style="min-width:120px;">OEM</th>
+                    <th style="min-width:100px;">Артикул</th>
+                    <th style="width:110px;" class="text-right">Цена закупки</th>
+                    <th style="width:80px;" class="text-right">Остаток</th>
+                    <th style="min-width:90px;">Бренд</th>
+                    <th style="min-width:100px;">Категория</th>
+                </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+        </table>
+    </div>
+
+    <div id="pagination-bar-bottom" style="display:flex; gap:6px; align-items:center; padding:12px 0 0 0; flex-wrap:wrap;"></div>
+</div>
+{% else %}
+<div class="card">
+    <p class="text-muted" style="padding:24px; text-align:center;">
+        Детальные данные для этого импорта недоступны.<br>
+        <small>Подробная история сохраняется начиная с новых импортов.</small>
+    </p>
+</div>
+{% endif %}
+
+<style>
+.pagination-btn {
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-primary); cursor: pointer; font-size: 13px;
+}
+.pagination-btn.active { background: var(--accent-to); border-color: var(--accent-to); color: #fff; }
+.pagination-btn:disabled { opacity: 0.4; cursor: default; }
+</style>
+
+<script>
+const ALL_ROWS = {{ rows|safe }};
+let filteredIndices = ALL_ROWS.map(function(_, i){ return i; });
+const PAGE_SIZE = 100;
+let currentPage = 0;
+
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function totalPages() { return Math.max(1, Math.ceil(filteredIndices.length / PAGE_SIZE)); }
+
+function renderPage() {
+    const start = currentPage * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, filteredIndices.length);
+    let html = '';
+    for (let i = start; i < end; i++) {
+        const r = ALL_ROWS[filteredIndices[i]];
+        const priceNum = parseFloat(r.price) || 0;
+        html += `<tr>
+            <td style="color:var(--text-muted);text-align:center;">${filteredIndices[i]+1}</td>
+            <td>${esc(r.name)}</td>
+            <td style="font-family:monospace;font-size:12px;">${esc(r.oem)}</td>
+            <td style="font-family:monospace;font-size:12px;">${esc(r.part)}</td>
+            <td class="text-right">${priceNum > 0 ? priceNum.toLocaleString('ru-RU') : '—'}</td>
+            <td class="text-right">${r.qty !== undefined && r.qty !== '' ? r.qty : '—'}</td>
+            <td>${esc(r.brand)}</td>
+            <td>${esc(r.cat)}</td>
+        </tr>`;
+    }
+    document.getElementById('history-tbody').innerHTML = html;
+    document.getElementById('count-label').textContent = filteredIndices.length + ' из ' + ALL_ROWS.length + ' строк';
+    renderPagination();
+}
+
+function renderPagination() {
+    const tp = totalPages();
+    ['pagination-bar','pagination-bar-bottom'].forEach(function(id) {
+        const bar = document.getElementById(id);
+        if (tp <= 1) { bar.innerHTML = ''; return; }
+        let html = `<button class="pagination-btn" onclick="goPage(${currentPage-1})" ${currentPage===0?'disabled':''}>‹</button>`;
+        for (let p = 0; p < tp; p++) {
+            if (tp > 10 && Math.abs(p - currentPage) > 2 && p !== 0 && p !== tp-1) {
+                if (p === 1 || p === tp-2) html += '<span style="padding:0 4px;color:var(--text-muted)">…</span>';
+                continue;
+            }
+            html += `<button class="pagination-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p+1}</button>`;
+        }
+        html += `<button class="pagination-btn" onclick="goPage(${currentPage+1})" ${currentPage===tp-1?'disabled':''}>›</button>`;
+        html += `<span style="font-size:12px;color:var(--text-muted);margin-left:6px;">Стр. ${currentPage+1} / ${tp}</span>`;
+        bar.innerHTML = html;
+    });
+}
+
+function goPage(n) {
+    if (n < 0 || n >= totalPages()) return;
+    currentPage = n;
+    renderPage();
+    document.querySelector('.card').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function filterRows(q) {
+    q = q.toLowerCase().trim();
+    filteredIndices = !q
+        ? ALL_ROWS.map(function(_, i){ return i; })
+        : ALL_ROWS.reduce(function(acc, r, i) {
+            if ((r.name+r.oem+r.part+r.brand+r.cat).toLowerCase().includes(q)) acc.push(i);
+            return acc;
+          }, []);
+    currentPage = 0;
+    renderPage();
+}
+
+renderPage();
+</script>
+{% endblock %}

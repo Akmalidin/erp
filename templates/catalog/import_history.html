@@ -1,80 +1,95 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block title %}История импортов{% endblock %}
+{% block navbar_title %}История импортов{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
+    <div>
         <h1>История импортов прайс-листов</h1>
+    </div>
+    <div class="page-header-actions">
         <a href="{% url 'product_import' %}" class="btn btn-primary">
-            <i class="fas fa-upload"></i> Новый импорт
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Новый импорт
         </a>
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Файл</th>
-                            <th>Дата</th>
-                            <th>Всего строк</th>
-                            <th>Создано</th>
-                            <th>Обновлено</th>
-                            <th>Ошибок</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for import_item in page_obj %}
-                        <tr>
-                            <td>{{ import_item.filename }}</td>
-                            <td>{{ import_item.created_at|date:"d.m.Y H:i" }}</td>
-                            <td>{{ import_item.total_rows }}</td>
-                            <td><span class="badge badge-success">{{ import_item.created_count }}</span></td>
-                            <td><span class="badge badge-warning">{{ import_item.updated_count }}</span></td>
-                            <td><span class="badge badge-danger">{{ import_item.errors_count }}</span></td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center text-muted">Нет истории импортов</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            {% if page_obj.has_other_pages %}
-            <nav aria-label="Pagination">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Предыдущая</a>
-                    </li>
-                    {% endif %}
-
-                    {% for num in page_obj.paginator.page_range %}
-                        {% if page_obj.number == num %}
-                        <li class="page-item active">
-                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                        </li>
-                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                        </li>
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Файл</th>
+                    <th>Дата</th>
+                    <th class="text-right">Всего строк</th>
+                    <th class="text-right">Создано</th>
+                    <th class="text-right">Обновлено</th>
+                    <th class="text-right">Ошибок</th>
+                    <th style="width:100px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in page_obj %}
+                <tr>
+                    <td>
+                        <span style="font-weight:500;">{{ item.filename }}</span>
+                    </td>
+                    <td class="text-muted">{{ item.created_at|date:"d.m.Y H:i" }}</td>
+                    <td class="text-right">{{ item.total_rows }}</td>
+                    <td class="text-right">
+                        {% if item.created_count %}
+                        <span class="badge badge-ok">+{{ item.created_count }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-right">
+                        {% if item.updated_count %}
+                        <span class="badge badge-low">↻ {{ item.updated_count }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-right">
+                        {% if item.errors_count %}
+                        <span class="badge badge-out">{{ item.errors_count }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-right">
+                        {% if item.rows_json %}
+                        <a href="{% url 'import_history_detail' item.pk %}" class="btn btn-secondary btn-sm">
+                            Просмотр
+                        </a>
+                        {% else %}
+                        <span class="text-muted" style="font-size:12px;">нет данных</span>
                         {% endif %}
-                    {% endfor %}
-
-                    {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Следующая</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-muted" style="text-align:center; padding:32px;">
+                        Нет истории импортов
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+
+    {% if page_obj.has_other_pages %}
+    <div style="display:flex; justify-content:center; gap:6px; padding:16px;">
+        {% if page_obj.has_previous %}
+        <a class="btn btn-secondary btn-sm" href="?page={{ page_obj.previous_page_number }}">‹</a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <span class="btn btn-primary btn-sm">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a class="btn btn-secondary btn-sm" href="?page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a class="btn btn-secondary btn-sm" href="?page={{ page_obj.next_page_number }}">›</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

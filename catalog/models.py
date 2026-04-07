@@ -197,6 +197,7 @@ class ImportHistory(models.Model):
     created_count = models.PositiveIntegerField('Создано', default=0)
     updated_count = models.PositiveIntegerField('Обновлено', default=0)
     errors_count = models.PositiveIntegerField('Ошибок', default=0)
+    rows_json = models.TextField('Данные строк', blank=True, default='')
 
     class Meta:
         verbose_name = 'История импорта'

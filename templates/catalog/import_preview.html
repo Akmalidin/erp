@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}Редактирование прайса — AutoParts CRM{% endblock %}
+{% block navbar_title %}Редактирование перед импортом{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Редактирование прайса</h1>
+        <p class="page-subtitle">Файл: <strong>{{ original_name }}</strong> — {{ rows_count }} строк</p>
+    </div>
+</div>
+
+<form id="preview-form" method="post" action="{% url 'product_import_process' %}">
+    {% csrf_token %}
+    <input type="hidden" name="edited_rows_json" id="edited-rows-input">
+
+    <div class="card mb-3">
+        <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" id="search-input" class="form-input" placeholder="Поиск..." style="width:220px; font-size:13px;" oninput="filterRows(this.value)">
+                <span id="count-label" style="font-size:13px; color:var(--text-muted);"></span>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <a href="{% url 'product_import' %}" class="btn btn-secondary btn-sm">Отмена</a>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitImport()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Импортировать (<span id="valid-count">0</span>)
+                </button>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination-bar" style="display:flex; gap:6px; align-items:center; padding:0 0 10px 0; flex-wrap:wrap;"></div>
+
+        <div style="overflow-x:auto;">
+            <table class="data-table" id="preview-table" style="font-size:13px; min-width:900px;">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th style="min-width:200px;">Название *</th>
+                        <th style="min-width:130px;">OEM</th>
+                        <th style="min-width:110px;">Артикул</th>
+                        <th style="width:100px;">Цена закупки</th>
+                        <th style="width:80px;">Остаток</th>
+                        <th style="min-width:100px;">Бренд</th>
+                        <th style="min-width:110px;">Категория</th>
+                        <th style="width:36px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="preview-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- Bottom pagination -->
+        <div id="pagination-bar-bottom" style="display:flex; gap:6px; align-items:center; padding:12px 0 0 0; flex-wrap:wrap;"></div>
+    </div>
+</form>
+
+<style>
+.cell-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 2px 4px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.cell-input:focus {
+    border-bottom-color: var(--accent-to);
+    background: rgba(255,255,255,0.04);
+}
+.cell-input.num-input { text-align: right; }
+#preview-tbody tr:hover { background: rgba(255,255,255,0.02); }
+.row-deleted { opacity: 0.35; }
+.row-deleted .cell-input { pointer-events: none; }
+.del-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); padding: 2px 4px; border-radius: 4px;
+    font-size: 16px; line-height: 1;
+}
+.del-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+.pagination-btn {
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-primary); cursor: pointer;
+    font-size: 13px;
+}
+.pagination-btn.active { background: var(--accent-to); border-color: var(--accent-to); color: #fff; }
+.pagination-btn:disabled { opacity: 0.4; cursor: default; }
+</style>
+
+<script>
+const ALL_ROWS = {{ rows_json|safe }};
+// filteredIndices: indices into ALL_ROWS currently visible (after search)
+let filteredIndices = ALL_ROWS.map((_, i) => i);
+const PAGE_SIZE = 100;
+let currentPage = 0;
+
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function totalPages() {
+    return Math.max(1, Math.ceil(filteredIndices.length / PAGE_SIZE));
+}
+
+function saveCurrentPage() {
+    const start = currentPage * PAGE_SIZE;
+    document.querySelectorAll('#preview-tbody tr').forEach(function(tr, rel) {
+        const globalIdx = parseInt(tr.dataset.idx);
+        if (isNaN(globalIdx)) return;
+        tr.querySelectorAll('.cell-input').forEach(function(inp) {
+            ALL_ROWS[globalIdx][inp.dataset.field] = inp.value;
+        });
+        ALL_ROWS[globalIdx]._deleted = tr.classList.contains('row-deleted');
+    });
+}
+
+function renderPage() {
+    const start = currentPage * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, filteredIndices.length);
+    const tbody = document.getElementById('preview-tbody');
+    let html = '';
+    for (let i = start; i < end; i++) {
+        const globalIdx = filteredIndices[i];
+        const row = ALL_ROWS[globalIdx];
+        const del = row._deleted ? 'row-deleted' : '';
+        html += `<tr data-idx="${globalIdx}" class="${del}">
+            <td style="color:var(--text-muted);text-align:center;">${globalIdx + 1}</td>
+            <td><input class="cell-input" data-field="name" value="${esc(row.name)}"></td>
+            <td><input class="cell-input" data-field="oem_number" value="${esc(row.oem_number)}"></td>
+            <td><input class="cell-input" data-field="part_number" value="${esc(row.part_number)}"></td>
+            <td><input class="cell-input num-input" type="number" data-field="price_purchase" value="${esc(row.price_purchase)}" min="0" step="0.01"></td>
+            <td><input class="cell-input num-input" type="number" data-field="stock_quantity" value="${esc(row.stock_quantity)}" min="0" step="1"></td>
+            <td><input class="cell-input" data-field="brand" value="${esc(row.brand)}"></td>
+            <td><input class="cell-input" data-field="category" value="${esc(row.category)}"></td>
+            <td><button type="button" class="del-btn" onclick="toggleDelete(this)" title="Удалить строку">×</button></td>
+        </tr>`;
+    }
+    tbody.innerHTML = html;
+    updateCounters();
+    renderPagination();
+}
+
+function toggleDelete(btn) {
+    const tr = btn.closest('tr');
+    tr.classList.toggle('row-deleted');
+    const globalIdx = parseInt(tr.dataset.idx);
+    ALL_ROWS[globalIdx]._deleted = tr.classList.contains('row-deleted');
+    updateCounters();
+}
+
+function updateCounters() {
+    const valid = ALL_ROWS.filter(r => !r._deleted && (r.name || '').trim()).length;
+    document.getElementById('valid-count').textContent = valid;
+    document.getElementById('count-label').textContent =
+        'Показано: ' + filteredIndices.length + ' из ' + ALL_ROWS.length;
+}
+
+function renderPagination() {
+    const tp = totalPages();
+    function buildBar(id) {
+        const bar = document.getElementById(id);
+        if (tp <= 1) { bar.innerHTML = ''; return; }
+        let html = `<button class="pagination-btn" onclick="goPage(${currentPage - 1})" ${currentPage===0?'disabled':''}>‹</button>`;
+        for (let p = 0; p < tp; p++) {
+            if (tp > 10 && Math.abs(p - currentPage) > 2 && p !== 0 && p !== tp-1) {
+                if (p === 1 || p === tp-2) html += '<span style="padding:0 4px;color:var(--text-muted)">…</span>';
+                continue;
+            }
+            html += `<button class="pagination-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p+1}</button>`;
+        }
+        html += `<button class="pagination-btn" onclick="goPage(${currentPage + 1})" ${currentPage===tp-1?'disabled':''}>›</button>`;
+        html += `<span style="font-size:12px;color:var(--text-muted);margin-left:6px;">Стр. ${currentPage+1} / ${tp} (по ${PAGE_SIZE} строк)</span>`;
+        bar.innerHTML = html;
+    }
+    buildBar('pagination-bar');
+    buildBar('pagination-bar-bottom');
+}
+
+function goPage(n) {
+    if (n < 0 || n >= totalPages()) return;
+    saveCurrentPage();
+    currentPage = n;
+    renderPage();
+    document.getElementById('preview-table').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function filterRows(q) {
+    saveCurrentPage();
+    q = q.toLowerCase().trim();
+    if (!q) {
+        filteredIndices = ALL_ROWS.map((_, i) => i);
+    } else {
+        filteredIndices = [];
+        ALL_ROWS.forEach(function(row, i) {
+            const hay = (row.name + row.oem_number + row.part_number + row.brand + row.cat).toLowerCase();
+            if (hay.includes(q)) filteredIndices.push(i);
+        });
+    }
+    currentPage = 0;
+    renderPage();
+}
+
+function submitImport() {
+    saveCurrentPage();
+    const validRows = ALL_ROWS.filter(function(r) {
+        return !r._deleted && (r.name || '').trim();
+    });
+    if (validRows.length === 0) {
+        alert('Нет строк для импорта.');
+        return;
+    }
+    document.getElementById('edited-rows-input').value = JSON.stringify(validRows);
+    document.getElementById('preview-form').submit();
+}
+
+// Init
+renderPage();
+</script>
+{% endblock %}

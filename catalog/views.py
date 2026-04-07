@@ -392,10 +392,9 @@ def product_import_mapping(request):
 
 
 @login_required
-def product_import_process(request):
-    """Step 3: Process the import with user-defined column mapping."""
-    import os
-    from django.db import transaction
+def product_import_preview(request):
+    """Step 2b: Show editable table of mapped rows before import."""
+    import os, json
 
     if request.method != 'POST':
         return redirect('product_import')
@@ -412,15 +411,13 @@ def product_import_process(request):
         return redirect('product_import')
 
     columns = [str(col).strip() for col in df.columns.tolist()]
-
-    # Read user's column mapping from POST
     field_keys = ['name', 'oem_number', 'part_number', 'price_purchase',
                   'stock_quantity', 'brand', 'category', 'car_make', 'car_model']
 
-    user_mapping = {}  # field_key -> column_index
+    user_mapping = {}
     for fk in field_keys:
         val = request.POST.get(f'map_{fk}', '')
-        if val != '' and val != '-1':
+        if val not in ('', '-1'):
             try:
                 col_idx = int(val)
                 if 0 <= col_idx < len(columns):
@@ -428,19 +425,104 @@ def product_import_process(request):
             except (ValueError, TypeError):
                 pass
 
-    # Check required
     if 'name' not in user_mapping:
-        messages.error(request, 'Не указан столбец "Название". Это обязательное поле.')
+        messages.error(request, 'Не указан столбец "Название".')
         return redirect('product_import_mapping')
 
-    def get_str(row, field_key):
-        if field_key not in user_mapping:
+    def get_val(row, fk):
+        if fk not in user_mapping:
             return ''
-        val = row.iloc[user_mapping[field_key]]
-        if pd.isna(val):
+        v = row.iloc[user_mapping[fk]]
+        if pd.isna(v):
             return ''
-        s = str(val).strip()
+        s = str(v).strip()
         return '' if s.lower() == 'nan' else s
+
+    rows = []
+    for _, row in df.iterrows():
+        rows.append({fk: get_val(row, fk) for fk in field_keys})
+
+    return render(request, 'catalog/import_preview.html', {
+        'rows_json': json.dumps(rows, ensure_ascii=False),
+        'rows_count': len(rows),
+        'original_name': request.session.get('import_original_name', 'файл'),
+    })
+
+
+@login_required
+def product_import_process(request):
+    """Step 3: Process the import — accepts either edited JSON rows or raw mapping."""
+    import os, json
+    from django.db import transaction
+
+    if request.method != 'POST':
+        return redirect('product_import')
+
+    field_keys = ['name', 'oem_number', 'part_number', 'price_purchase',
+                  'stock_quantity', 'brand', 'category', 'car_make', 'car_model']
+
+    edited_json = request.POST.get('edited_rows_json', '')
+    if edited_json:
+        # Path A: data comes from editable preview table
+        try:
+            iter_rows = json.loads(edited_json)
+        except json.JSONDecodeError:
+            messages.error(request, 'Ошибка данных формы.')
+            return redirect('product_import')
+        original_name = request.session.pop('import_original_name', 'файл')
+        request.session.pop('import_tmp_file', None)
+
+        def get_str(row, fk):
+            return str(row.get(fk, '') or '').strip()
+
+    else:
+        # Path B: original pickle + mapping (direct from mapping page)
+        tmp_path = request.session.get('import_tmp_file')
+        if not tmp_path or not os.path.exists(tmp_path):
+            messages.error(request, 'Файл не найден. Загрузите заново.')
+            return redirect('product_import')
+        try:
+            df = pd.read_pickle(tmp_path)
+        except Exception:
+            messages.error(request, 'Ошибка чтения файла.')
+            return redirect('product_import')
+
+        columns = [str(col).strip() for col in df.columns.tolist()]
+        user_mapping = {}
+        for fk in field_keys:
+            val = request.POST.get(f'map_{fk}', '')
+            if val not in ('', '-1'):
+                try:
+                    col_idx = int(val)
+                    if 0 <= col_idx < len(columns):
+                        user_mapping[fk] = col_idx
+                except (ValueError, TypeError):
+                    pass
+
+        if 'name' not in user_mapping:
+            messages.error(request, 'Не указан столбец "Название". Это обязательное поле.')
+            return redirect('product_import_mapping')
+
+        def _raw(row, fk):
+            if fk not in user_mapping:
+                return ''
+            v = row.iloc[user_mapping[fk]]
+            if pd.isna(v):
+                return ''
+            s = str(v).strip()
+            return '' if s.lower() == 'nan' else s
+
+        iter_rows = [{fk: _raw(row, fk) for fk in field_keys} for _, row in df.iterrows()]
+
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        request.session.pop('import_tmp_file', None)
+        original_name = request.session.pop('import_original_name', 'файл')
+
+        def get_str(row, fk):
+            return str(row.get(fk, '') or '').strip()
 
     # Pre-build caches to avoid per-row DB queries
     category_cache = {}   # name -> Category
@@ -467,7 +549,9 @@ def product_import_process(request):
     car_matrix_new = []      # (list_index, make_name, model_name)
     car_matrix_update = []   # (product, make_name, model_name)
 
-    for idx, row in df.iterrows():
+    snapshot_rows = []  # for ImportHistory
+
+    for row in iter_rows:
         try:
             name = get_str(row, 'name')
             if not name:
@@ -483,6 +567,12 @@ def product_import_process(request):
 
             price_purchase = parse_number(get_str(row, 'price_purchase') or 0)
             stock_qty      = int(parse_number(get_str(row, 'stock_quantity') or 0))
+
+            snapshot_rows.append({
+                'name': name, 'oem': oem, 'part': part_number,
+                'price': str(price_purchase), 'qty': stock_qty,
+                'brand': brand, 'cat': cat_name,
+            })
 
             composite_key = (norm(oem), norm(part_number))
 
@@ -592,22 +682,16 @@ def product_import_process(request):
             if car_model_obj:
                 product.compatible_models.add(car_model_obj)
 
-    # Cleanup temp file
-    try:
-        os.remove(tmp_path)
-    except OSError:
-        pass
-    request.session.pop('import_tmp_file', None)
-    original_name = request.session.pop('import_original_name', 'файл')
-
-    # Save import history
+    # Save import history with snapshot
+    import json as _json
     ImportHistory.objects.create(
         user=request.user,
         filename=original_name,
-        total_rows=len(df),
+        total_rows=len(iter_rows),
         created_count=created,
         updated_count=updated,
         errors_count=errors,
+        rows_json=_json.dumps(snapshot_rows, ensure_ascii=False),
     )
 
     messages.success(
@@ -761,6 +845,23 @@ def import_history_list(request):
     
     return render(request, 'catalog/import_history.html', {
         'page_obj': page_obj,
+    })
+
+
+@login_required
+def import_history_detail(request, pk):
+    """View full price list from an import history record."""
+    import json as _json
+    record = get_object_or_404(ImportHistory, pk=pk, user=request.user)
+    rows = []
+    if record.rows_json:
+        try:
+            rows = _json.loads(record.rows_json)
+        except Exception:
+            pass
+    return render(request, 'catalog/import_history_detail.html', {
+        'record': record,
+        'rows': rows,
     })
 
 
