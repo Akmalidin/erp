@@ -239,6 +239,38 @@ def purchase_cancel(request, pk):
 
 
 @login_required
+def add_product_to_purchase(request, product_pk):
+    """POST: add a product to a draft purchase order (or create a new draft)."""
+    if request.method != 'POST':
+        return redirect('product_detail', pk=product_pk)
+
+    product = get_object_or_404(Product, pk=product_pk, user=request.user)
+    purchase_pk = request.POST.get('purchase_pk')
+    qty = max(1, int(request.POST.get('qty', 1)))
+    price = Decimal(str(request.POST.get('price', product.price_purchase or '0')))
+
+    if purchase_pk == 'new' or not purchase_pk:
+        order = PurchaseOrder.objects.create(user=request.user, status='draft', total_price=Decimal('0'))
+    else:
+        order = get_object_or_404(PurchaseOrder, pk=purchase_pk, user=request.user, status='draft')
+
+    item, created = PurchaseItem.objects.get_or_create(
+        order=order, product=product,
+        defaults={'quantity': qty, 'price': price}
+    )
+    if not created:
+        item.quantity += qty
+        item.save(update_fields=['quantity'])
+
+    # Recalc order total
+    order.total_price = sum(i.quantity * i.price for i in order.items.all())
+    order.save(update_fields=['total_price'])
+
+    messages.success(request, f'"{product.name}" добавлен в закупку #{order.pk}')
+    return redirect('product_detail', pk=product_pk)
+
+
+@login_required
 def product_search_api(request):
     """AJAX: search products for purchase order form."""
     query = request.GET.get('q', '').strip()

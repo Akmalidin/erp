@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block title %}Заказ #{{ order.pk }} — AutoParts CRM{% endblock %}
-{% block navbar_title %}Заказ #{{ order.pk }}{% endblock %}
+{% block title %}{{ order.order_number }} — AutoParts CRM{% endblock %}
+{% block navbar_title %}{{ order.order_number }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div>
-        <h1>Заказ #{{ order.pk }}</h1>
+        <h1>{{ order.order_number }}</h1>
         <p class="page-subtitle">{{ order.created_at|date:"d.m.Y H:i" }}</p>
     </div>
     <div class="page-header-actions">

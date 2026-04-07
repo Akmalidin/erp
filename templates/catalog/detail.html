@@ -123,6 +123,39 @@
                 <a href="{% url 'price_level_list' %}" class="btn btn-secondary btn-sm btn-block">Настроить наценки</a>
             </div>
         </div>
+
+        <!-- Add to Purchase Order -->
+        <div class="card" style="margin-top: 16px;">
+            <h3 class="card-title mb-2">В закупку</h3>
+            <form method="post" action="{% url 'add_product_to_purchase' product.pk %}">
+                {% csrf_token %}
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <div>
+                        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Закупочный заказ</label>
+                        <select name="purchase_pk" class="form-input" style="width:100%;">
+                            <option value="new">+ Создать новый черновик</option>
+                            {% for po in draft_purchases %}
+                            <option value="{{ po.pk }}">#{{ po.pk }}{% if po.supplier %} — {{ po.supplier.name }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                        <div>
+                            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Кол-во</label>
+                            <input type="number" name="qty" value="1" min="1" class="form-input" style="width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Цена закупки</label>
+                            <input type="number" name="price" value="{{ product.price_purchase|floatformat:0 }}" min="0" step="0.01" class="form-input" style="width:100%;">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Добавить в закупку
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

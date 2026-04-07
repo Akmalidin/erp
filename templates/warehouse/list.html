@@ -68,7 +68,11 @@
                     </td>
                     <td class="text-muted">{{ product.min_stock }}</td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="openStockModal({{ product.pk }}, '{{ product.name|escapejs }}', {{ product.stock_quantity }})">
+                        <button class="btn btn-secondary btn-sm adj-btn"
+                                data-pk="{{ product.pk }}"
+                                data-name="{{ product.name|escapejs }}"
+                                data-qty="{{ product.stock_quantity }}"
+                                data-url="{% url 'stock_adjust' product.pk %}">
                             Корректировка
                         </button>
                     </td>
@@ -157,18 +161,21 @@
 </div>
 
 <script>
-    function openStockModal(pk, name, currentQty) {
-        const modal = document.getElementById('stock-modal');
-        const form = document.getElementById('stock-adjust-form');
-        const nameEl = document.getElementById('modal-product-name');
-        const qtyInput = document.getElementById('modal-quantity');
+    // Delegate click to all adjustment buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.adj-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const modal = document.getElementById('stock-modal');
+                document.getElementById('stock-adjust-form').action = btn.dataset.url;
+                document.getElementById('modal-product-name').textContent = btn.dataset.name;
+                document.getElementById('modal-quantity').value = btn.dataset.qty;
+                modal.style.display = 'flex';
+            });
+        });
+    });
 
-        // Set form action dynamically
-        form.action = `/warehouse/adjust/${pk}/`;
-        nameEl.textContent = name;
-        qtyInput.value = currentQty;
-        
-        modal.style.display = 'flex';
+    function openStockModal(pk, name, currentQty) {
+        /* legacy fallback — not used */
     }
 
     function closeStockModal() {

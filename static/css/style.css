@@ -185,7 +185,7 @@ a:hover {
 .sidebar {
     width: var(--sidebar-width);
     height: 100vh;
-    background: rgba(10, 10, 18, 0.95);
+    background: var(--sidebar-bg, rgba(10, 10, 18, 0.95));
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid var(--border);

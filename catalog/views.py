@@ -10,10 +10,11 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 from django.utils import timezone
 
-from .models import Product, Category, PriceLevel, CarMake, CarModel
+from .models import Product, Category, PriceLevel, CarMake, CarModel, ImportHistory
 from .forms import ProductForm, CategoryForm, ImportForm, PriceLevelForm
 from .utils import get_smart_search_filter
 from warehouse.models import StockMovement
+from purchases.models import PurchaseOrder
 
 
 @login_required
@@ -96,10 +97,12 @@ def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk, user=request.user)
     movements = StockMovement.objects.filter(product=product, user=request.user).order_by('-created_at')[:20]
     all_prices = product.get_all_prices()
+    draft_purchases = PurchaseOrder.objects.filter(user=request.user, status='draft').select_related('supplier')
     context = {
         'product': product,
         'movements': movements,
         'all_prices': all_prices,
+        'draft_purchases': draft_purchases,
     }
     return render(request, 'catalog/detail.html', context)
 
@@ -444,9 +447,12 @@ def product_import_process(request):
     make_cache = {}       # name -> CarMake
     model_cache = {}      # (make_id, name) -> CarModel
 
-    # Pre-load existing products with OEM numbers into a dict
-    existing_by_oem = {
-        p.oem_number: p
+    # Pre-load existing products — normalize keys (strip + upper) to avoid whitespace/case duplicates
+    def norm(s):
+        return (s or '').strip().upper()
+
+    existing_by_composite = {
+        (norm(p.oem_number), norm(p.part_number)): p
         for p in Product.objects.filter(user=request.user).exclude(oem_number='')
     }
 
@@ -478,6 +484,8 @@ def product_import_process(request):
             price_purchase = parse_number(get_str(row, 'price_purchase') or 0)
             stock_qty      = int(parse_number(get_str(row, 'stock_quantity') or 0))
 
+            composite_key = (norm(oem), norm(part_number))
+
             # Category (cached)
             category_obj = None
             if cat_name:
@@ -487,9 +495,9 @@ def product_import_process(request):
                     )
                 category_obj = category_cache[cat_name]
 
-            if oem and oem in existing_by_oem:
+            if oem and composite_key in existing_by_composite:
                 # Update existing
-                p = existing_by_oem[oem]
+                p = existing_by_composite[composite_key]
                 p.name           = name
                 p.part_number    = part_number
                 p.brand          = brand
@@ -500,7 +508,7 @@ def product_import_process(request):
                 updated += 1
                 if make_name:
                     car_matrix_update.append((p, make_name, model_name))
-            elif oem and oem not in existing_by_oem:
+            elif oem:
                 # New product with OEM — collect for bulk_create
                 p = Product(
                     user=request.user,
@@ -515,7 +523,7 @@ def product_import_process(request):
                 idx_in_list = len(to_create)
                 to_create.append(p)
                 created += 1
-                existing_by_oem[oem] = p  # prevent duplicate OEM in same file
+                existing_by_composite[composite_key] = p  # prevent duplicate in same file
                 if make_name:
                     car_matrix_new.append((idx_in_list, make_name, model_name))
             else:
@@ -590,7 +598,17 @@ def product_import_process(request):
     except OSError:
         pass
     request.session.pop('import_tmp_file', None)
-    request.session.pop('import_original_name', None)
+    original_name = request.session.pop('import_original_name', 'файл')
+
+    # Save import history
+    ImportHistory.objects.create(
+        user=request.user,
+        filename=original_name,
+        total_rows=len(df),
+        created_count=created,
+        updated_count=updated,
+        errors_count=errors,
+    )
 
     messages.success(
         request,
@@ -730,6 +748,19 @@ def bulk_price_change(request):
     return render(request, 'catalog/bulk_price_change.html', {
         'categories': categories,
         'brands': brands,
+    })
+
+
+@login_required
+def import_history_list(request):
+    """List import history."""
+    imports = ImportHistory.objects.filter(user=request.user).order_by('-created_at')
+    
+    paginator = Paginator(imports, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'catalog/import_history.html', {
+        'page_obj': page_obj,
     })
 
 

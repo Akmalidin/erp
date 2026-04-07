@@ -49,7 +49,7 @@
             <tbody>
                 {% for order in page_obj %}
                 <tr>
-                    <td><a href="{% url 'order_detail' order.pk %}" class="text-accent fw-bold">#{{ order.pk }}</a></td>
+                    <td><a href="{% url 'order_detail' order.pk %}" class="text-accent fw-bold">{{ order.order_number }}</a></td>
                     <td>
                         {% if order.client %}
                         <a href="{% url 'client_detail' order.client.pk %}">{{ order.client.name }}</a>

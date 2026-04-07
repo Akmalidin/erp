@@ -187,3 +187,21 @@ class Product(models.Model):
     def price_retail(self):
         """Backward-compatible: retail price (default markup)."""
         return self.get_price()
+
+
+class ImportHistory(models.Model):
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    filename = models.CharField('Имя файла', max_length=255)
+    created_at = models.DateTimeField('Дата импорта', auto_now_add=True)
+    total_rows = models.PositiveIntegerField('Всего строк')
+    created_count = models.PositiveIntegerField('Создано', default=0)
+    updated_count = models.PositiveIntegerField('Обновлено', default=0)
+    errors_count = models.PositiveIntegerField('Ошибок', default=0)
+
+    class Meta:
+        verbose_name = 'История импорта'
+        verbose_name_plural = 'Истории импортов'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.filename} - {self.created_at.strftime("%d.%m.%Y %H:%M")}'

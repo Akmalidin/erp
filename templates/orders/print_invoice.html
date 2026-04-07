@@ -53,7 +53,7 @@
         <button onclick="window.close()" style="padding: 8px 16px; margin-left: 10px; cursor: pointer;">❌ Закрыть</button>
     </div>
 
-    <h1>Расходная накладная № {{ order.pk }} от {{ order.created_at|date:"d.m.Y" }}</h1>
+    <h1>Расходная накладная {{ order.order_number }} от {{ order.created_at|date:"d.m.Y" }}</h1>
     
     <div class="header-info">
         <div class="info-block">
@@ -80,14 +80,14 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in order.items.all %}
+            {% for item in items %}
             <tr>
                 <td class="text-center">{{ forloop.counter }}</td>
                 <td>{{ item.product.oem_number }}</td>
                 <td>{{ item.product.name }}</td>
                 <td class="text-center">{{ item.quantity }}</td>
-                <td class="text-right">{{ item.price|floatformat:0 }}</td>
-                <td class="text-right">{{ item.total_price|default:item.price|floatformat:0 }}</td>
+                <td class="text-right">{{ item.price|floatformat:0 }}{% if item.discount_percent %}<br><small style="color:#666;">-{{ item.discount_percent|floatformat:0 }}%</small>{% endif %}</td>
+                <td class="text-right">{{ item.total|floatformat:0 }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -95,6 +95,12 @@
 
     <div class="total-section">
         <table>
+            {% if order.discount_type != 'none' and order.discount_value %}
+            <tr>
+                <td class="text-right">Скидка:</td>
+                <td class="text-right" style="width:120px; color:#c00;">-{{ order.discount_amount|floatformat:0 }} {{ request.user.currency_symbol }}</td>
+            </tr>
+            {% endif %}
             <tr>
                 <td class="text-right fw-bold">Итого к оплате:</td>
                 <td class="text-right fw-bold" style="width: 120px; font-size: 18px;">

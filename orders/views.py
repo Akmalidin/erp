@@ -446,7 +446,8 @@ def print_receipt(request, pk):
 def print_invoice(request, pk):
     """Print A4 invoice/nakladnaya."""
     order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
-    return render(request, 'orders/print_invoice.html', {'order': order})
+    items = order.items.select_related('product').all()
+    return render(request, 'orders/print_invoice.html', {'order': order, 'items': items})
 
 
 @login_required
@@ -460,7 +461,16 @@ def pos_view(request):
 
     clients = Client.objects.filter(user=request.user).order_by('name')
     default_warehouse = Warehouse.get_default(request.user)
-    
+
+    # Auto-close shift if it was opened on a previous day
+    from django.utils import timezone as tz
+    if shift and shift.opened_at.date() < tz.now().date():
+        shift.closed_at = tz.now()
+        shift.is_open = False
+        shift.save(update_fields=['closed_at', 'is_open'])
+        messages.warning(request, 'Смена автоматически закрыта (начался новый день). Откройте новую смену.')
+        return redirect('shift_open')
+
     if request.method == 'POST':
         cart_json = request.POST.get('cart_json', '[]')
         client_id = request.POST.get('client_id')
@@ -560,8 +570,14 @@ def pos_view(request):
         
         if errors:
             for err in errors: messages.warning(request, err)
-            
-        messages.success(request, f'Чек #{order.pk} пробит на сумму {total:,.2f} {request.user.currency_symbol}')
-        return redirect('pos_view')
+
+        return redirect('pos_sale_done', pk=order.pk)
 
     return render(request, 'orders/pos.html', {'clients': clients})
+
+
+@login_required
+def pos_sale_done(request, pk):
+    """Post-sale screen: ask to print receipt or invoice."""
+    order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
+    return render(request, 'orders/pos_sale_done.html', {'order': order})

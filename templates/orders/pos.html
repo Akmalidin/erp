@@ -441,12 +441,17 @@
                     <td class="text-muted">${idx+1}</td>
                     <td class="fw-bold">${item.name} <br><small class="text-muted">${item.oem}</small></td>
                     <td>
-                        <select onchange="updateItemPrice(${idx}, this.value)" style="background:transparent; border:none; color:var(--text-color); font-weight:bold; cursor:pointer; font-size:15px;">
-                            <option value="${item.price}" selected>${item.price.toLocaleString()}</option>
-                            ${Object.values(item.prices || {}).map(lp => `
-                                <option value="${lp.price}">${lp.price} (${lp.name})</option>
-                            `).join('')}
-                        </select>
+                        <div style="display:flex;flex-direction:column;gap:3px;">
+                            <select onchange="updateItemPrice(${idx}, this.value)" style="background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-weight:600; cursor:pointer; font-size:13px; padding:2px 4px;">
+                                ${Object.values(item.prices || {}).map(lp => `
+                                    <option value="${lp.price}" ${Math.abs(parseFloat(lp.price) - item.price) < 0.01 ? 'selected' : ''}>${lp.name}: ${parseFloat(lp.price).toLocaleString()}</option>
+                                `).join('')}
+                                <option value="custom">✏ Своя цена</option>
+                            </select>
+                            <input type="number" class="form-input" style="width:110px;padding:4px;font-size:13px;font-weight:600;"
+                                   value="${item.price}" min="0" step="1"
+                                   oninput="updateItemPriceManual(${idx}, this.value)">
+                        </div>
                     </td>
                     <td>
                         <div style="display:flex; align-items:center; gap:4px;">
@@ -474,8 +479,17 @@
     }
 
     window.updateItemPrice = function(idx, newPrice) {
+        if (newPrice === 'custom') return;
         cart[idx].price = parseFloat(newPrice);
         renderCart();
+    };
+
+    window.updateItemPriceManual = function(idx, val) {
+        const p = parseFloat(val);
+        if (!isNaN(p) && p >= 0) {
+            cart[idx].price = p;
+            recalcTotal();
+        }
     };
 
     window.setItemDiscount = function(idx, val) {

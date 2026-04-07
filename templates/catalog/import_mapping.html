@@ -62,10 +62,12 @@
                     <div class="text-muted" style="font-size: 12px;">{{ field.description }}</div>
                 </div>
                 <div style="flex: 1; max-width: 400px;">
-                    <select name="map_{{ field.key }}" class="form-input" {% if field.required %}required{% endif %}>
+                    <select name="map_{{ field.key }}" class="form-input auto-map-select"
+                            data-field="{{ field.key }}"
+                            {% if field.required %}required{% endif %}>
                         <option value="-1">— Пропустить это поле —</option>
                         {% for col in columns %}
-                            <option value="{{ forloop.counter0 }}" 
+                            <option value="{{ forloop.counter0 }}"
                             {% for automap_key, automap_idx in auto_map.items %}
                                 {% if automap_key == field.key and automap_idx == forloop.parentloop.counter0 %}selected{% endif %}
                             {% endfor %}>
@@ -78,8 +80,12 @@
             {% endfor %}
         </div>
 
-        <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+        <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end; flex-wrap:wrap;">
             <a href="{% url 'product_import' %}" class="btn btn-secondary">Отменить импорт</a>
+            <button type="button" class="btn btn-secondary" onclick="autoDetectAndSubmit()" title="Применить авто-определение и импортировать">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                Авто-импорт (авто-колонки)
+            </button>
             <button type="submit" class="btn btn-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 Запустить импорт
@@ -87,4 +93,33 @@
         </div>
     </div>
 </form>
+
+<script>
+// Build auto_map from server-side data
+const AUTO_MAP = {
+    {% for key, idx in auto_map.items %}'{{ key }}': {{ idx }},
+    {% endfor %}
+};
+
+function autoDetectAndSubmit() {
+    // Apply auto-detected values to all selects
+    document.querySelectorAll('.auto-map-select').forEach(function(sel) {
+        const field = sel.dataset.field;
+        if (AUTO_MAP.hasOwnProperty(field)) {
+            sel.value = AUTO_MAP[field];
+        }
+    });
+    document.querySelector('form[action*="process"]').submit();
+}
+
+// Apply auto-map on page load (highlight auto-detected fields)
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.auto-map-select').forEach(function(sel) {
+        const field = sel.dataset.field;
+        if (AUTO_MAP.hasOwnProperty(field) && sel.value != '-1') {
+            sel.style.borderColor = 'var(--accent-to)';
+        }
+    });
+});
+</script>
 {% endblock %}

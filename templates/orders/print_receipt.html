@@ -38,7 +38,7 @@
 <body>
     <div class="text-center border-bottom mb-2">
         <h2 style="margin: 5px 0; font-size: 18px;">{{ request.user.company_name|default:"AutoParts" }}</h2>
-        <div>Товарный чек №{{ order.pk }}</div>
+        <div>Товарный чек {{ order.order_number }}</div>
         <div>От: {{ order.created_at|date:"d.m.Y H:i" }}</div>
     </div>
     
@@ -56,14 +56,23 @@
             </td>
         </tr>
         <tr>
-            <td>{{ item.quantity }} x {{ item.price|floatformat:0 }}</td>
-            <td class="price-col fw-bold">{{ item.total_price|default:item.price }} {{ request.user.currency_symbol }}</td>
+            <td>{{ item.quantity }} x {{ item.price|floatformat:0 }}{% if item.discount_percent %} (-{{ item.discount_percent|floatformat:0 }}%){% endif %}</td>
+            <td class="price-col fw-bold">{{ item.total|floatformat:0 }} {{ request.user.currency_symbol }}</td>
         </tr>
         {% endfor %}
     </table>
 
+    {% if order.discount_type != 'none' and order.discount_value %}
+    <div class="text-right" style="font-size: 13px;">
+        Скидка: -{{ order.discount_amount|floatformat:0 }} {{ request.user.currency_symbol }}
+    </div>
+    {% endif %}
     <div class="text-right fw-bold" style="font-size: 16px;">
         ИТОГО: {{ order.total_price|floatformat:0 }} {{ request.user.currency_symbol }}
+    </div>
+    <div style="font-size: 12px; margin-top:4px;">
+        Оплачено: {{ order.paid_amount|floatformat:0 }} {{ request.user.currency_symbol }}
+        {% with due=order.total_price|add:"-"|add:order.paid_amount %}{% endwith %}
     </div>
 
     <div class="text-center" style="margin-top: 20px; font-size: 12px;">

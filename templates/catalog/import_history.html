@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}История импортов{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>История импортов прайс-листов</h1>
+        <a href="{% url 'product_import' %}" class="btn btn-primary">
+            <i class="fas fa-upload"></i> Новый импорт
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Файл</th>
+                            <th>Дата</th>
+                            <th>Всего строк</th>
+                            <th>Создано</th>
+                            <th>Обновлено</th>
+                            <th>Ошибок</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for import_item in page_obj %}
+                        <tr>
+                            <td>{{ import_item.filename }}</td>
+                            <td>{{ import_item.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>{{ import_item.total_rows }}</td>
+                            <td><span class="badge badge-success">{{ import_item.created_count }}</span></td>
+                            <td><span class="badge badge-warning">{{ import_item.updated_count }}</span></td>
+                            <td><span class="badge badge-danger">{{ import_item.errors_count }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">Нет истории импортов</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Предыдущая</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Следующая</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

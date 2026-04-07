@@ -71,9 +71,13 @@ class Order(models.Model):
         verbose_name_plural = 'Заказы'
         ordering = ['-created_at']
 
+    @property
+    def order_number(self):
+        return f'INV-{self.pk:06d}'
+
     def __str__(self):
         client_name = self.client.name if self.client else 'Без клиента'
-        return f'Заказ #{self.pk} — {client_name}'
+        return f'{self.order_number} — {client_name}'
 
     def recalculate_total(self):
         """Recalculate total price from items (with discounts)."""

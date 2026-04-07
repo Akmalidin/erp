@@ -10,6 +10,7 @@ urlpatterns = [
     path('import/', views.product_import, name='product_import'),
     path('import/mapping/', views.product_import_mapping, name='product_import_mapping'),
     path('import/process/', views.product_import_process, name='product_import_process'),
+    path('import/history/', views.import_history_list, name='import_history_list'),
     path('categories/', views.category_list, name='category_list'),
     path('categories/<int:pk>/delete/', views.category_delete, name='category_delete'),
     path('print-price/', views.print_price_list, name='print_price_list'),
