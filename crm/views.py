@@ -57,12 +57,16 @@ def client_detail(request, pk):
     total_spent = orders.aggregate(total=Sum('total_price'))['total'] or 0
     payments = Payment.objects.filter(client=client, user=request.user).order_by('-created_at')
 
+    order_count = orders.count()
+    avg_check = (total_spent / order_count) if order_count else 0
+
     context = {
         'client': client,
         'orders': orders,
         'payments': payments,
         'total_spent': total_spent,
-        'order_count': orders.count(),
+        'order_count': order_count,
+        'avg_check': avg_check,
     }
     return render(request, 'crm/detail.html', context)
 

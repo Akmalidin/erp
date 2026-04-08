@@ -1,3 +1,4 @@
+{% load order_extras %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -104,29 +105,43 @@
             {% if order.discount_type != 'none' and order.discount_value %}
             <tr>
                 <td class="text-right">Скидка:</td>
-                <td class="text-right" style="width:120px; color:#c00;">-{{ order.discount_amount|floatformat:0 }} {{ request.user.currency_symbol }}</td>
+                <td class="text-right" style="width:130px; color:#c00;">-{{ order.discount_amount|floatformat:0 }} {{ request.user.currency_symbol }}</td>
             </tr>
             {% endif %}
             <tr>
                 <td class="text-right fw-bold">Итого к оплате:</td>
-                <td class="text-right fw-bold" style="width: 120px; font-size: 18px;">
+                <td class="text-right fw-bold" style="width:130px; font-size:18px;">
                     {{ order.total_price|floatformat:0 }} {{ request.user.currency_symbol }}
                 </td>
             </tr>
         </table>
     </div>
 
+    <!-- Сумма прописью -->
+    <div style="margin-bottom:30px; padding:10px 14px; border:1px solid #ccc; border-radius:4px; background:#f9f9f9;">
+        <span style="font-weight:bold;">Сумма прописью: </span>
+        <span>{{ order.total_price|num_to_words:request.user.currency_symbol }}</span>
+    </div>
+
     <div class="signatures">
         <div class="sign-block">
-            <div class="fw-bold">Отпустил:</div>
+            <div class="fw-bold">Отпустил:
+                <span style="font-weight:normal; margin-left:8px;">
+                    {{ request.user.get_full_name|default:request.user.email }}
+                </span>
+            </div>
             <div class="sign-line">
-                <span class="sign-desc">(подпись, Ф.И.О.)</span>
+                <span class="sign-desc">(подпись)</span>
             </div>
         </div>
         <div class="sign-block">
-            <div class="fw-bold">Получил:</div>
+            <div class="fw-bold">Получил:
+                {% if order.client %}
+                <span style="font-weight:normal; margin-left:8px;">{{ order.client.name }}</span>
+                {% endif %}
+            </div>
             <div class="sign-line">
-                <span class="sign-desc">(подпись, Ф.И.О.)</span>
+                <span class="sign-desc">(подпись)</span>
             </div>
         </div>
     </div>

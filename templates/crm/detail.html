@@ -5,10 +5,14 @@
 {% block navbar_title %}Клиент{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<!-- ── Header ── -->
+<div class="page-header" style="margin-bottom:16px;">
     <div>
         <h1>{{ client.name }}</h1>
-        <p class="page-subtitle">{% if client.company_name %}{{ client.company_name }} · {% endif %}Клиент с {{ client.created_at|date:"d.m.Y" }}</p>
+        <p class="page-subtitle">
+            {% if client.company_name %}{{ client.company_name }} · {% endif %}
+            Клиент #{{ client.pk }} · с {{ client.created_at|date:"d.m.Y" }}
+        </p>
     </div>
     <div class="page-header-actions">
         <a href="{% url 'client_edit' client.pk %}" class="btn btn-secondary">Редактировать</a>
@@ -16,16 +20,20 @@
     </div>
 </div>
 
-    <div class="stat-card animate-in">
+<!-- ── Stats row ── -->
+<div style="display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-bottom:16px;">
+    <div class="stat-card animate-in" style="margin:0;">
         <div class="stat-card-header">
             <span class="stat-card-label">Долг клиента</span>
             <div class="stat-card-icon red">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             </div>
         </div>
-        <div class="stat-card-value text-danger">{{ client.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
+        <div class="stat-card-value {% if client.debt > 0 %}text-danger{% endif %}">
+            {{ client.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
+        </div>
     </div>
-    <div class="stat-card animate-in">
+    <div class="stat-card animate-in" style="margin:0;">
         <div class="stat-card-header">
             <span class="stat-card-label">Всего потрачено</span>
             <div class="stat-card-icon orange">
@@ -34,136 +42,231 @@
         </div>
         <div class="stat-card-value">{{ total_spent|floatformat:0|intcomma }} {{ user.currency_symbol }}</div>
     </div>
-    <div class="stat-card animate-in">
+    <div class="stat-card animate-in" style="margin:0;">
         <div class="stat-card-header">
             <span class="stat-card-label">Средний чек</span>
             <div class="stat-card-icon green">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             </div>
         </div>
-        <div class="stat-card-value">{% if order_count > 0 %}{{ total_spent|floatformat:0|intcomma }}{% else %}0{% endif %} {{ user.currency_symbol }}</div>
+        <div class="stat-card-value">
+            {% if order_count > 0 %}{{ avg_check|floatformat:0|intcomma }}{% else %}0{% endif %}
+            {{ user.currency_symbol }}
+        </div>
     </div>
 </div>
 
-<div class="card mb-3">
-    <h3 class="card-title mb-2">Контактная информация</h3>
-    <div class="detail-grid">
-        <div class="detail-item">
-            <span class="detail-label">Телефон</span>
-            <span class="detail-value">{{ client.phone|default:"Не указан" }}</span>
-        </div>
-        <div class="detail-item">
-            <span class="detail-label">Email</span>
-            <span class="detail-value">{{ client.email|default:"Не указан" }}</span>
-        </div>
-        <div class="detail-item">
-            <span class="detail-label">Компания</span>
-            <span class="detail-value">{{ client.company_name|default:"Не указана" }}</span>
-        </div>
-        <div class="detail-item">
-            <span class="detail-label">Адрес</span>
-            <span class="detail-value">{{ client.address|default:"Не указан" }}</span>
-        </div>
-        {% if client.discount_percent > 0 %}
-        <div class="detail-item">
-            <span class="detail-label">Персональная скидка</span>
-            <span class="detail-value" style="color:var(--success);font-weight:700;">
-                {{ client.discount_percent }}%
-            </span>
-        </div>
-        {% endif %}
-    </div>
-    {% if client.notes %}
-    <div class="detail-item mt-2">
-        <span class="detail-label">Заметки</span>
-        <span class="detail-value">{{ client.notes }}</span>
-    </div>
-    {% endif %}
-</div>
+<!-- ── Main 2-column: tabs + sidebar ── -->
+<div style="display:grid; grid-template-columns:1fr 300px; gap:16px; align-items:start;">
 
-<!-- Portal Access Management -->
-<div class="card mb-3">
-    <div class="card-header">
-        <h3 class="card-title">Доступ к клиентскому порталу</h3>
-        {% if client.portal_enabled %}
-        <span class="badge" style="background:#d1fae5;color:#065f46;">Активен</span>
-        {% else %}
-        <span class="badge" style="background:#fee2e2;color:#991b1b;">Отключён</span>
-        {% endif %}
-    </div>
-
-    {% if client.portal_enabled %}
-    <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
-        Клиент может войти на портал по телефону <strong>{{ client.phone }}</strong>.
-        Ссылка на портал: <a href="/portal/" target="_blank" style="color:var(--accent-to);">/portal/</a>
-    </p>
-    <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <form method="post" action="{% url 'admin_portal_manage' client.pk %}" style="display:flex; gap:8px; align-items:center;">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="change_password">
-            <input type="password" name="password" class="form-input" placeholder="Новый пароль" style="width:200px;" required minlength="4">
-            <button type="submit" class="btn btn-secondary btn-sm">Сменить пароль</button>
-        </form>
-        <form method="post" action="{% url 'admin_portal_manage' client.pk %}">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="disable">
-            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Отключить доступ к порталу?')">Отключить доступ</button>
-        </form>
-    </div>
-    {% else %}
-    <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
-        Активируйте доступ, чтобы клиент мог просматривать заказы и делать новые через портал.
-        {% if not client.phone %}<br><strong style="color:var(--danger);">Укажите телефон клиента — он используется для входа.</strong>{% endif %}
-    </p>
-    <form method="post" action="{% url 'admin_portal_manage' client.pk %}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="enable">
-        <input type="password" name="password" class="form-input" placeholder="Задать пароль для клиента" style="width:240px;" required minlength="4">
-        <button type="submit" class="btn btn-primary btn-sm">Активировать доступ</button>
-    </form>
-    {% endif %}
-</div>
-
-<!-- Order History -->
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
-    <!-- Order History -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">История заказов</h3>
-            <a href="{% url 'order_create' %}" class="btn btn-primary btn-sm">+ Новый заказ</a>
-        </div>
-        {% if orders %}
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>№</th>
-                        <th>Сумма</th>
-                        <th>Статус</th>
-                        <th>Дата</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in orders %}
-                    <tr>
-                        <td><a href="{% url 'order_detail' order.pk %}" class="text-accent fw-bold">#{{ order.pk }}</a></td>
-                        <td class="fw-bold">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
-                        <td><span class="badge badge-{{ order.status }}">{{ order.get_status_display }}</span></td>
-                        <td class="text-muted">{{ order.created_at|date:"d.m.Y H:i" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="text-muted" style="padding: 20px;">Нет заказов</p>
-        {% endif %}
-    </div>
-
-    <!-- Payments & Debt Management -->
+    <!-- Left: tab panel -->
     <div>
-        <div class="card mb-3">
-            <h3 class="card-title mb-2">Принять оплату</h3>
+        <!-- Tab nav -->
+        <div style="display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:16px;">
+            <button class="crm-tab active" data-tab="info"
+                style="padding:10px 18px; background:none; border:none; cursor:pointer; font-size:14px;
+                       font-weight:600; color:var(--text-primary); border-bottom:2px solid var(--primary);
+                       margin-bottom:-2px; transition:color 0.2s;">
+                Информация
+            </button>
+            <button class="crm-tab" data-tab="orders"
+                style="padding:10px 18px; background:none; border:none; cursor:pointer; font-size:14px;
+                       font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent;
+                       margin-bottom:-2px; transition:color 0.2s;">
+                Заказы
+                {% if order_count %}<span style="background:var(--primary);color:#fff;font-size:11px;
+                    border-radius:10px;padding:1px 7px;margin-left:6px;">{{ order_count }}</span>{% endif %}
+            </button>
+            <button class="crm-tab" data-tab="payments"
+                style="padding:10px 18px; background:none; border:none; cursor:pointer; font-size:14px;
+                       font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent;
+                       margin-bottom:-2px; transition:color 0.2s;">
+                Платежи
+                {% if payments %}<span style="background:var(--success);color:#fff;font-size:11px;
+                    border-radius:10px;padding:1px 7px;margin-left:6px;">{{ payments|length }}</span>{% endif %}
+            </button>
+            <button class="crm-tab" data-tab="portal"
+                style="padding:10px 18px; background:none; border:none; cursor:pointer; font-size:14px;
+                       font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent;
+                       margin-bottom:-2px; transition:color 0.2s;">
+                Портал
+                {% if client.portal_enabled %}
+                <span style="background:#d1fae5;color:#065f46;font-size:11px;border-radius:10px;
+                      padding:1px 7px;margin-left:6px;">ON</span>
+                {% endif %}
+            </button>
+        </div>
+
+        <!-- Tab: Информация -->
+        <div id="tab-info" class="crm-tab-content">
+            <div class="card">
+                <h3 class="card-title" style="margin-bottom:16px;">Контактная информация</h3>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <div class="detail-label">Телефон</div>
+                        <div class="detail-value">{{ client.phone|default:"—" }}</div>
+                    </div>
+                    <div>
+                        <div class="detail-label">Email</div>
+                        <div class="detail-value">{{ client.email|default:"—" }}</div>
+                    </div>
+                    <div>
+                        <div class="detail-label">Компания</div>
+                        <div class="detail-value">{{ client.company_name|default:"—" }}</div>
+                    </div>
+                    <div>
+                        <div class="detail-label">Адрес</div>
+                        <div class="detail-value">{{ client.address|default:"—" }}</div>
+                    </div>
+                    {% if client.discount_percent > 0 %}
+                    <div>
+                        <div class="detail-label">Персональная скидка</div>
+                        <div class="detail-value" style="color:var(--success);font-weight:700;">{{ client.discount_percent }}%</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if client.notes %}
+                <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+                    <div class="detail-label" style="margin-bottom:6px;">Заметки</div>
+                    <div style="font-size:14px; color:var(--text-secondary); line-height:1.5;">{{ client.notes }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab: Заказы -->
+        <div id="tab-orders" class="crm-tab-content" style="display:none;">
+            <div class="card" style="padding:0; overflow:hidden;">
+                <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                    <span style="font-weight:600;">История заказов</span>
+                    <a href="{% url 'order_create' %}" class="btn btn-primary btn-sm">+ Новый заказ</a>
+                </div>
+                {% if orders %}
+                <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Сумма</th>
+                            <th>Оплачено</th>
+                            <th>Статус</th>
+                            <th>Дата</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td><strong>#{{ order.pk }}</strong></td>
+                            <td class="fw-bold">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                            <td style="color:var(--text-muted);">{{ order.paid_amount|floatformat:0|intcomma }}</td>
+                            <td><span class="badge badge-{{ order.status }}">{{ order.get_status_display }}</span></td>
+                            <td style="color:var(--text-muted); white-space:nowrap;">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                            <td><a href="{% url 'order_detail' order.pk %}" class="btn btn-secondary btn-sm">Открыть</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% else %}
+                <div class="empty-state" style="padding:40px 20px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg>
+                    <h3>Заказов пока нет</h3>
+                    <a href="{% url 'order_create' %}" class="btn btn-primary" style="margin-top:12px;">Создать заказ</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab: Платежи -->
+        <div id="tab-payments" class="crm-tab-content" style="display:none;">
+            <div class="card" style="padding:0; overflow:hidden;">
+                <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+                    <span style="font-weight:600;">История платежей</span>
+                </div>
+                {% if payments %}
+                <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Сумма</th>
+                            <th>Способ</th>
+                            <th>Заметка</th>
+                            <th>Дата</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payments %}
+                        <tr>
+                            <td style="font-weight:600; color:var(--success);">+{{ p.amount|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                            <td>{{ p.get_payment_type_display }}</td>
+                            <td style="color:var(--text-muted);">{{ p.note|default:"—" }}</td>
+                            <td style="color:var(--text-muted); white-space:nowrap;">{{ p.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% else %}
+                <div class="empty-state" style="padding:40px 20px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+                    <h3>Платежей пока нет</h3>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab: Портал -->
+        <div id="tab-portal" class="crm-tab-content" style="display:none;">
+            <div class="card">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                    <h3 class="card-title" style="margin:0;">Доступ к клиентскому порталу</h3>
+                    {% if client.portal_enabled %}
+                    <span class="badge" style="background:#d1fae5;color:#065f46;">Активен</span>
+                    {% else %}
+                    <span class="badge" style="background:#fee2e2;color:#991b1b;">Отключён</span>
+                    {% endif %}
+                </div>
+
+                {% if client.portal_enabled %}
+                <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
+                    Клиент входит по телефону <strong>{{ client.phone }}</strong>.
+                    Ссылка: <a href="/portal/" target="_blank" style="color:var(--primary);">/portal/</a>
+                </p>
+                <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                    <form method="post" action="{% url 'admin_portal_manage' client.pk %}" style="display:flex; gap:8px; align-items:center;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="change_password">
+                        <input type="password" name="password" class="form-input" placeholder="Новый пароль" style="width:200px;" required minlength="4">
+                        <button type="submit" class="btn btn-secondary btn-sm">Сменить пароль</button>
+                    </form>
+                    <form method="post" action="{% url 'admin_portal_manage' client.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="disable">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Отключить доступ?')">Отключить доступ</button>
+                    </form>
+                </div>
+                {% else %}
+                <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
+                    Активируйте доступ — клиент сможет просматривать заказы и делать новые через портал.
+                    {% if not client.phone %}<br><strong style="color:var(--danger);">Укажите телефон — он используется для входа.</strong>{% endif %}
+                </p>
+                <form method="post" action="{% url 'admin_portal_manage' client.pk %}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="enable">
+                    <input type="password" name="password" class="form-input" placeholder="Задать пароль" style="width:240px;" required minlength="4">
+                    <button type="submit" class="btn btn-primary btn-sm">Активировать доступ</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: sticky payment sidebar -->
+    <div style="position:sticky; top:16px;">
+        <!-- Payment form -->
+        <div class="card" style="margin-bottom:12px;">
+            <h3 class="card-title" style="margin-bottom:14px;">Принять оплату</h3>
             <form method="post" action="{% url 'record_payment' client.pk %}">
                 {% csrf_token %}
                 <div class="form-group">
@@ -182,32 +285,74 @@
                     <label class="form-label">Примечание</label>
                     <input type="text" name="note" class="form-input" placeholder="...">
                 </div>
-                <button type="submit" class="btn btn-success btn-block">Записать платеж</button>
+                <button type="submit" class="btn btn-success" style="width:100%; justify-content:center;">Записать платёж</button>
             </form>
         </div>
 
-        <div class="card">
-            <h3 class="card-title mb-2">Последние платежи</h3>
-            {% if payments %}
-            <div class="table-container">
-                <table class="data-table" style="font-size: 0.9rem;">
-                    <tbody>
-                        {% for payment in payments|slice:":10" %}
-                        <tr>
-                            <td>
-                                <div>{{ payment.amount|floatformat:0 }} {{ user.currency_symbol }}</div>
-                                <div class="text-muted" style="font-size: 0.75rem;">{{ payment.get_payment_type_display }}</div>
-                            </td>
-                            <td class="text-right text-muted">{{ payment.created_at|date:"d.m.Y" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <!-- Quick stats -->
+        <div class="card" style="font-size:13px;">
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border);">
+                <span style="color:var(--text-muted);">Заказов всего</span>
+                <strong>{{ order_count }}</strong>
             </div>
-            {% else %}
-            <p class="text-muted text-center" style="padding: 10px;">Нет платежей</p>
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border);">
+                <span style="color:var(--text-muted);">Платежей</span>
+                <strong>{{ payments|length }}</strong>
+            </div>
+            {% if client.discount_percent > 0 %}
+            <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                <span style="color:var(--text-muted);">Скидка</span>
+                <strong style="color:var(--success);">{{ client.discount_percent }}%</strong>
+            </div>
+            {% endif %}
+            {% if client.debt > 0 %}
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-top:1px solid var(--border);">
+                <span style="color:var(--text-muted);">Долг</span>
+                <strong style="color:var(--danger);">{{ client.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}</strong>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+<!-- Tab switching JS (no page reload) -->
+<script>
+(function() {
+    var tabs    = document.querySelectorAll('.crm-tab');
+    var panels  = document.querySelectorAll('.crm-tab-content');
+    var STORAGE = 'crm_client_tab_{{ client.pk }}';
+
+    function activate(name) {
+        tabs.forEach(function(btn) {
+            var on = btn.dataset.tab === name;
+            btn.style.color       = on ? 'var(--text-primary)' : 'var(--text-muted)';
+            btn.style.fontWeight  = on ? '600' : '500';
+            btn.style.borderBottomColor = on ? 'var(--primary)' : 'transparent';
+            btn.classList.toggle('active', on);
+        });
+        panels.forEach(function(p) {
+            p.style.display = p.id === 'tab-' + name ? '' : 'none';
+        });
+        try { localStorage.setItem(STORAGE, name); } catch(e) {}
+    }
+
+    tabs.forEach(function(btn) {
+        btn.addEventListener('click', function() { activate(btn.dataset.tab); });
+    });
+
+    // Restore last tab or use hash
+    var hash    = location.hash.replace('#', '');
+    var saved   = '';
+    try { saved = localStorage.getItem(STORAGE) || ''; } catch(e) {}
+    var initial = hash || saved || 'info';
+    if (!document.getElementById('tab-' + initial)) initial = 'info';
+    activate(initial);
+
+    // Allow external links like /crm/3/#orders
+    window.addEventListener('hashchange', function() {
+        var h = location.hash.replace('#', '');
+        if (document.getElementById('tab-' + h)) activate(h);
+    });
+})();
+</script>
 {% endblock %}

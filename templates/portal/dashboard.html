@@ -17,6 +17,7 @@
 
 {% if page_obj %}
 <div class="card" style="padding: 0; overflow:hidden;">
+    <div style="overflow-x:auto;">
     <table class="data-table">
         <thead>
             <tr>
@@ -52,6 +53,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 
 {% if page_obj.has_other_pages %}

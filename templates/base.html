@@ -581,6 +581,159 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    <!-- ── Connectivity / Sync notification (desktop mode) ── -->
+    {% if user.is_authenticated %}
+    <div id="sync-toast" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+         background:#1e293b; color:#fff; border-radius:12px; padding:14px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.35);
+         z-index:9999; display:none; align-items:center; gap:14px; min-width:340px; max-width:480px;
+         font-size:14px; animation:slideUp 0.3s ease-out;">
+        <span id="sync-toast-icon" style="font-size:20px;">🌐</span>
+        <div style="flex:1;">
+            <div id="sync-toast-title" style="font-weight:600; margin-bottom:2px;"></div>
+            <div id="sync-toast-body" style="font-size:12px; color:#94a3b8;"></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button id="sync-toast-yes" onclick="doSync()"
+                style="background:#3b82f6; color:#fff; border:none; border-radius:8px;
+                       padding:7px 16px; cursor:pointer; font-size:13px; font-weight:600;">
+                Да, переключить
+            </button>
+            <button onclick="dismissSyncToast()"
+                style="background:rgba(255,255,255,0.1); color:#fff; border:none; border-radius:8px;
+                       padding:7px 12px; cursor:pointer; font-size:13px;">
+                Позже
+            </button>
+        </div>
+    </div>
+
+    <div id="sync-progress" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+         background:#1e293b; color:#fff; border-radius:12px; padding:14px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.35);
+         z-index:9999; align-items:center; gap:12px; min-width:280px; font-size:14px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="#3b82f6" stroke-width="2" style="animation:spin 1s linear infinite; flex-shrink:0;">
+            <polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path>
+        </svg>
+        <span id="sync-progress-text">Синхронизация...</span>
+    </div>
+
+    <style>
+    @keyframes slideUp {
+        from { opacity:0; transform:translateX(-50%) translateY(20px); }
+        to   { opacity:1; transform:translateX(-50%) translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+
+    <script>
+    (function() {
+        var _prevMode = null;
+        var _dismissed = false;
+
+        function checkStatus() {
+            fetch('/desktop/status/', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (!data) return;
+
+                    // Появилось интернет-соединение, а сейчас работаем на SQLite
+                    if (data.switch_available && !_dismissed) {
+                        var body = '';
+                        if (data.pending_changes > 0) {
+                            body = 'Офлайн-изменений: ' + data.pending_changes +
+                                   (data.pending_imports > 0 ? ', импортов: ' + data.pending_imports : '');
+                        } else {
+                            body = 'Изменений для загрузки нет';
+                        }
+                        showSyncToast(
+                            'Появился интернет — переключиться на PostgreSQL?',
+                            body
+                        );
+                    }
+
+                    // Интернет пропал пока были на PostgreSQL — просто показываем инфо
+                    if (_prevMode === 'postgres' && data.network_mode === 'sqlite' && data.active_mode === 'postgres') {
+                        showInfoToast('Нет интернета', 'Работаем в офлайн-режиме, данные сохраняются локально');
+                    }
+
+                    _prevMode = data.network_mode;
+                })
+                .catch(function() {});
+        }
+
+        function showSyncToast(title, body) {
+            var t = document.getElementById('sync-toast');
+            document.getElementById('sync-toast-title').textContent = title;
+            document.getElementById('sync-toast-body').textContent  = body;
+            document.getElementById('sync-toast-icon').textContent  = '🌐';
+            document.getElementById('sync-toast-yes').style.display = '';
+            t.style.display = 'flex';
+        }
+
+        function showInfoToast(title, body) {
+            var t = document.getElementById('sync-toast');
+            document.getElementById('sync-toast-title').textContent = title;
+            document.getElementById('sync-toast-body').textContent  = body;
+            document.getElementById('sync-toast-icon').textContent  = '📴';
+            document.getElementById('sync-toast-yes').style.display = 'none';
+            t.style.display = 'flex';
+            setTimeout(dismissSyncToast, 6000);
+        }
+
+        window.dismissSyncToast = function() {
+            document.getElementById('sync-toast').style.display = 'none';
+            _dismissed = true;
+            // Повторно спросить через 5 минут
+            setTimeout(function() { _dismissed = false; }, 300000);
+        };
+
+        window.doSync = function() {
+            document.getElementById('sync-toast').style.display = 'none';
+            var prog = document.getElementById('sync-progress');
+            prog.style.display = 'flex';
+            document.getElementById('sync-progress-text').textContent = 'Синхронизация с PostgreSQL...';
+
+            fetch('/desktop/sync/', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''
+                }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('sync-progress-text').textContent =
+                    data.ok ? 'Синхронизация запущена, перезагрузка...' : (data.message || 'Ошибка');
+                if (data.ok) {
+                    // Ждём завершения синхронизации и перезагружаем страницу
+                    var checkDone = setInterval(function() {
+                        fetch('/desktop/status/')
+                            .then(function(r) { return r.json(); })
+                            .then(function(s) {
+                                if (!s.syncing) {
+                                    clearInterval(checkDone);
+                                    prog.style.display = 'none';
+                                    window.location.reload();
+                                }
+                            }).catch(function() {});
+                    }, 2000);
+                } else {
+                    setTimeout(function() { prog.style.display = 'none'; }, 3000);
+                }
+            })
+            .catch(function() {
+                prog.style.display = 'none';
+            });
+        };
+
+        // Запускаем опрос только если пользователь залогинен
+        setInterval(checkStatus, 15000);
+        // Первая проверка через 5 секунд после загрузки
+        setTimeout(checkStatus, 5000);
+    })();
+    </script>
+    {% endif %}
 </body>
 
 </html>

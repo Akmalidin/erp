@@ -1,65 +1,79 @@
 @echo off
-setlocal enabledelayedexpansion
-
+chcp 65001 >nul
 echo ============================================================
-echo  AutoParts CRM — Build Script
+echo   AutoParts ERP — Сборка десктопного приложения
 echo ============================================================
-echo.
 
-:: ── Check that we are in the project directory ──────────────────────────────
-if not exist "manage.py" (
-    echo ERROR: Run this script from the project root ^(where manage.py is^).
-    pause & exit /b 1
-)
-
-:: ── Step 1: Collect static files ────────────────────────────────────────────
-echo [1/3] Collecting static files...
-python manage.py collectstatic --noinput --clear
+:: Проверяем python
+python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: collectstatic failed.
+    echo [ОШИБКА] Python не найден!
     pause & exit /b 1
 )
-echo       Done. staticfiles\ is ready.
+
+:: Устанавливаем зависимости
 echo.
+echo [1/5] Установка зависимостей...
+pip install -r requirements.txt -q
+pip install pyinstaller -q
 
-:: ── Step 2: Run PyInstaller ─────────────────────────────────────────────────
-echo [2/3] Building exe with PyInstaller...
-pyinstaller build.spec --clean --noconfirm
-if errorlevel 1 (
-    echo ERROR: PyInstaller build failed.
-    pause & exit /b 1
-)
-echo       Done. dist\AutoPartsCRM\ is ready.
+:: Сбор статики
 echo.
+echo [2/5] Сбор статических файлов...
+python manage.py collectstatic --noinput -v 0
 
-:: ── Step 3: Build Inno Setup installer (optional) ───────────────────────────
-echo [3/3] Building installer with Inno Setup...
+:: Создаём папку dist если нет
+if not exist dist mkdir dist
 
-:: Try common ISCC locations
-set ISCC=""
-if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
-    set ISCC="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-) else if exist "C:\Program Files\Inno Setup 6\ISCC.exe" (
-    set ISCC="C:\Program Files\Inno Setup 6\ISCC.exe"
-)
+:: Собираем exe
+echo.
+echo [3/5] Сборка EXE через PyInstaller...
+pyinstaller --noconfirm --clean ^
+  --name "AutoPartsERP" ^
+  --onefile ^
+  --windowed ^
+  --icon "static/img/favicon.ico" ^
+  --add-data "templates;templates" ^
+  --add-data "staticfiles;staticfiles" ^
+  --add-data "autoparts;autoparts" ^
+  --add-data "users;users" ^
+  --add-data "catalog;catalog" ^
+  --add-data "orders;orders" ^
+  --add-data "crm;crm" ^
+  --add-data "warehouse;warehouse" ^
+  --add-data "purchases;purchases" ^
+  --add-data "reports;reports" ^
+  --add-data "portal;portal" ^
+  --add-data "desktop;desktop" ^
+  --hidden-import "django.contrib.admin" ^
+  --hidden-import "django.contrib.auth" ^
+  --hidden-import "django.contrib.contenttypes" ^
+  --hidden-import "django.contrib.sessions" ^
+  --hidden-import "django.contrib.messages" ^
+  --hidden-import "django.contrib.staticfiles" ^
+  --hidden-import "django.contrib.humanize" ^
+  --hidden-import "whitenoise" ^
+  --hidden-import "psycopg2" ^
+  --hidden-import "PIL" ^
+  --hidden-import "pandas" ^
+  --hidden-import "openpyxl" ^
+  --collect-all "django" ^
+  run_server.py
 
-if %ISCC%=="" (
-    echo       Inno Setup not found — skipping installer build.
-    echo       Install from https://jrsoftware.org/isinfo.php then run:
-    echo         ISCC installer.iss
-) else (
-    %ISCC% installer.iss
-    if errorlevel 1 (
-        echo ERROR: Inno Setup build failed.
-        pause & exit /b 1
-    )
-    echo       Installer: dist\AutoPartsCRM_Setup_v1.0.exe
-)
+echo.
+echo [4/5] Создание папки для данных...
+if not exist "dist\AutoPartsERP_data" mkdir "dist\AutoPartsERP_data"
+
+echo.
+echo [5/5] Создание ярлыка запуска...
+(
+echo @echo off
+echo cd /d "%%~dp0"
+echo start "" "AutoPartsERP.exe"
+) > "dist\Запустить AutoParts.bat"
 
 echo.
 echo ============================================================
-echo  Build complete!
-echo  App folder : dist\AutoPartsCRM\
-echo  Installer  : dist\AutoPartsCRM_Setup_v1.0.exe
+echo   ГОТОВО! Файл: dist\AutoPartsERP.exe
 echo ============================================================
 pause

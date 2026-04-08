@@ -580,6 +580,25 @@ def product_import_process(request):
         def get_str(row, fk):
             return str(row.get(fk, '') or '').strip()
 
+    # ── Офлайн-режим: сохраняем в очередь PendingImport ─────────────────────
+    import os as _os
+    if _os.environ.get('DB_MODE', 'sqlite') == 'sqlite':
+        import json as _json
+        from desktop.models import PendingImport
+        PendingImport.objects.create(
+            user=request.user,
+            filename=original_name,
+            rows_json=_json.dumps(iter_rows, ensure_ascii=False),
+            rows_total=len(iter_rows),
+        )
+        messages.success(
+            request,
+            f'Нет подключения к серверу. Прайс «{original_name}» ({len(iter_rows)} строк) '
+            f'сохранён в очередь — загрузится автоматически при появлении интернета.'
+        )
+        return redirect('import_history_list')
+    # ─────────────────────────────────────────────────────────────────────────
+
     # Pre-build caches to avoid per-row DB queries
     category_cache = {}   # name -> Category
     make_cache = {}       # name -> CarMake

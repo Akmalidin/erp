@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'purchases.apps.PurchasesConfig',
     'portal.apps.PortalConfig',
+    'desktop.apps.DesktopConfig',
 ]
 
 MIDDLEWARE = [
@@ -80,25 +81,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'autoparts.wsgi.application'
 
-# Database — SQLite by default, switchable to PostgreSQL
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': APP_DATA_DIR / 'db.sqlite3',
+# Database — PostgreSQL if DB_NAME env var is set, else SQLite (local dev / frozen exe)
+if os.environ.get('DB_NAME'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ['DB_NAME'],
+            'USER': os.environ.get('DB_USER', 'erp_user'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
-
-# To switch to PostgreSQL, uncomment below and comment the SQLite block:
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'autoparts_db',
-#         'USER': 'postgres',
-#         'PASSWORD': 'your_password',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': APP_DATA_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
