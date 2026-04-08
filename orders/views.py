@@ -447,9 +447,15 @@ def print_receipt(request, pk):
 @login_required
 def print_invoice(request, pk):
     """Print A4 invoice/nakladnaya."""
+    from orders.templatetags.order_extras import amount_in_words
     order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
     items = order.items.select_related('product').all()
-    return render(request, 'orders/print_invoice.html', {'order': order, 'items': items})
+    total_in_words = amount_in_words(order.total_price, request.user.currency_symbol)
+    return render(request, 'orders/print_invoice.html', {
+        'order': order,
+        'items': items,
+        'total_in_words': total_in_words,
+    })
 
 
 @login_required

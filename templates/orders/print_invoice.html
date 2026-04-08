@@ -1,4 +1,3 @@
-{% load order_extras %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -120,7 +119,7 @@
     <!-- Сумма прописью -->
     <div style="margin-bottom:30px; padding:10px 14px; border:1px solid #ccc; border-radius:4px; background:#f9f9f9;">
         <span style="font-weight:bold;">Сумма прописью: </span>
-        <span>{{ order.total_price|num_to_words:request.user.currency_symbol }}</span>
+        <span>{{ total_in_words }}</span>
     </div>
 
     <div class="signatures">
