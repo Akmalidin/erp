@@ -52,9 +52,11 @@ def order_detail(request, pk):
     order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
     items = order.items.select_related('product').all()
 
+    from .models import OrderPayment
     context = {
         'order': order,
         'items': items,
+        'payment_methods': OrderPayment.METHOD_CHOICES,
     }
     return render(request, 'orders/detail.html', context)
 
@@ -448,6 +450,61 @@ def print_invoice(request, pk):
     order = get_object_or_404(Order.objects.select_related('client', 'user'), pk=pk, user=request.user)
     items = order.items.select_related('product').all()
     return render(request, 'orders/print_invoice.html', {'order': order, 'items': items})
+
+
+@login_required
+def order_accept_payment(request, pk):
+    """Record a payment for an order with optional QR photo upload."""
+    from decimal import Decimal
+    from .models import OrderPayment
+
+    order = get_object_or_404(Order, pk=pk, user=request.user)
+
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        amount = Decimal(str(request.POST.get('amount', '0')).replace(',', '.'))
+    except Exception:
+        amount = Decimal('0')
+
+    if amount <= 0:
+        messages.error(request, 'Введите корректную сумму')
+        return redirect('order_detail', pk=pk)
+
+    method   = request.POST.get('method', 'cash')
+    note     = request.POST.get('note', '').strip()
+    qr_photo = request.FILES.get('qr_photo')
+
+    # Save payment record
+    OrderPayment.objects.create(
+        order=order,
+        user=request.user,
+        amount=amount,
+        method=method,
+        note=note,
+        qr_photo=qr_photo or None,
+    )
+
+    # Update order paid_amount
+    order.paid_amount = (order.paid_amount or Decimal('0')) + amount
+    order.save(update_fields=['paid_amount'])
+
+    # Sync to crm.Payment if client exists
+    if order.client:
+        from crm.models import Payment as CrmPayment
+        CrmPayment.objects.create(
+            user=request.user,
+            client=order.client,
+            amount=amount,
+            payment_type=method if method in ('cash', 'card', 'transfer') else 'transfer',
+            note=note or f'Заказ {order.order_number}',
+        )
+
+    method_display = dict(OrderPayment.METHOD_CHOICES).get(method, method)
+    messages.success(request, f'Принято {amount:,.0f} {request.user.currency_symbol} ({method_display})')
+    return redirect('order_detail', pk=pk)
 
 
 @login_required

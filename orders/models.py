@@ -163,3 +163,31 @@ class OrderItem(models.Model):
         if self.discount_percent:
             return base * self.discount_percent / Decimal('100')
         return Decimal('0')
+
+
+class OrderPayment(models.Model):
+    """Individual payment record for an order (supports QR photo upload)."""
+    METHOD_CHOICES = [
+        ('cash',     'Наличные'),
+        ('card',     'Карта'),
+        ('transfer', 'Перевод'),
+        ('qr',       'QR (mBank)'),
+    ]
+
+    order      = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments', verbose_name='Заказ')
+    amount     = models.DecimalField('Сумма', max_digits=14, decimal_places=2)
+    method     = models.CharField('Способ оплаты', max_length=20, choices=METHOD_CHOICES, default='cash')
+    qr_photo   = models.ImageField('Фото QR/чека', upload_to='payments/qr/', blank=True, null=True)
+    note       = models.CharField('Примечание', max_length=300, blank=True)
+    created_at = models.DateTimeField('Дата', auto_now_add=True)
+    user       = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, verbose_name='Менеджер'
+    )
+
+    class Meta:
+        verbose_name = 'Платёж по заказу'
+        verbose_name_plural = 'Платежи по заказам'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.order.order_number}: {self.amount} ({self.method})'

@@ -11,124 +11,158 @@
         <p class="page-subtitle">{{ order.created_at|date:"d.m.Y H:i" }}</p>
     </div>
     <div class="page-header-actions">
-        <a href="{% url 'order_edit' order.pk %}" class="btn btn-primary" title="Редактировать">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        <button onclick="openPayModal()" class="btn btn-success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+            Принять оплату
+        </button>
+        <a href="{% url 'order_edit' order.pk %}" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
             Редактировать
         </a>
-        <a href="{% url 'print_receipt' order.pk %}" target="_blank" class="btn btn-secondary">
-            🖨️ Чек (80мм)
-        </a>
-        <a href="{% url 'print_invoice' order.pk %}" target="_blank" class="btn btn-secondary">
-            📄 Накладная (А4)
-        </a>
+        <a href="{% url 'print_receipt' order.pk %}" target="_blank" class="btn btn-secondary">🖨️ Чек (80мм)</a>
+        <a href="{% url 'print_invoice' order.pk %}" target="_blank" class="btn btn-secondary">📄 Накладная (А4)</a>
         <a href="{% url 'order_list' %}" class="btn btn-secondary">← Все заказы</a>
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
-    <!-- Order Info -->
+<div style="display:grid; grid-template-columns:1fr 320px; gap:20px; align-items:start;">
+
+    <!-- Left -->
     <div>
-        <div class="card mb-3">
-            <div class="card-header">
-                <h3 class="card-title">Информация о заказе</h3>
-                <span class="badge badge-{{ order.status }}" style="font-size: 14px; padding: 6px 16px;">{{ order.get_status_display }}</span>
+        <!-- Order info card -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <h3 class="card-title" style="margin:0;">Информация о заказе</h3>
+                <span class="badge badge-{{ order.status }}" style="font-size:13px; padding:5px 14px;">{{ order.get_status_display }}</span>
             </div>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <span class="detail-label">Клиент</span>
-                    <span class="detail-value">
-                        {% if order.client %}
-                        <a href="{% url 'client_detail' order.client.pk %}">{{ order.client.name }}</a>
-                        {% else %}Не указан{% endif %}
-                    </span>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; font-size:14px;">
+                <div>
+                    <div class="detail-label">Клиент</div>
+                    <div class="detail-value">
+                        {% if order.client %}<a href="{% url 'client_detail' order.client.pk %}">{{ order.client.name }}</a>
+                        {% else %}—{% endif %}
+                    </div>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Менеджер</span>
-                    <span class="detail-value">{{ order.user.first_name|default:order.user.email|default:"—" }}</span>
+                <div>
+                    <div class="detail-label">Менеджер</div>
+                    <div class="detail-value">{{ order.user.get_full_name|default:order.user.email }}</div>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Дата создания</span>
-                    <span class="detail-value">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+                <div>
+                    <div class="detail-label">Дата создания</div>
+                    <div class="detail-value">{{ order.created_at|date:"d.m.Y H:i" }}</div>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Обновлен</span>
-                    <span class="detail-value">{{ order.updated_at|date:"d.m.Y H:i" }}</span>
+                <div>
+                    <div class="detail-label">Обновлён</div>
+                    <div class="detail-value">{{ order.updated_at|date:"d.m.Y H:i" }}</div>
                 </div>
             </div>
             {% if order.notes %}
-            <div class="detail-item mt-2">
-                <span class="detail-label">Примечание</span>
-                <span class="detail-value">{{ order.notes }}</span>
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                <div class="detail-label">Примечание</div>
+                <div style="font-size:14px; margin-top:4px;">{{ order.notes }}</div>
             </div>
             {% endif %}
         </div>
 
-        <!-- Order Items -->
-        <div class="card">
-            <h3 class="card-title mb-2">Позиции заказа</h3>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Товар</th>
-                            <th>OEM</th>
-                            <th>Цена</th>
-                            <th>Кол-во</th>
-                            <th>Сумма</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in items %}
-                        <tr>
-                            <td>
-                                {% if item.product %}
-                                <a href="{% url 'product_detail' item.product.pk %}">{{ item.product.name|truncatechars:40 }}</a>
-                                {% else %}Товар удален{% endif %}
-                            </td>
-                            <td class="text-accent">{{ item.product.oem_number|default:"—" }}</td>
-                            <td>{{ item.price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
-                            <td>{{ item.quantity }}</td>
-                            <td class="fw-bold">{{ item.total|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" class="text-right fw-bold" style="font-size:16px;">Итого:</td>
-                            <td class="fw-bold" style="font-size:18px; color:var(--accent-to);">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
+        <!-- Items table -->
+        <div class="card" style="padding:0; overflow:hidden; margin-bottom:16px;">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+                <h3 class="card-title" style="margin:0;">Позиции заказа</h3>
+            </div>
+            <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th>OEM</th>
+                        <th style="text-align:right;">Цена</th>
+                        <th style="text-align:center;">Кол-во</th>
+                        <th style="text-align:right;">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            {% if item.product %}
+                            <a href="{% url 'product_detail' item.product.pk %}">{{ item.product.name|truncatechars:45 }}</a>
+                            {% else %}Товар удалён{% endif %}
+                        </td>
+                        <td style="color:var(--primary); font-size:13px;">{{ item.product.oem_number|default:"—" }}</td>
+                        <td style="text-align:right;">
+                            {{ item.price|floatformat:0|intcomma }}
+                            {% if item.discount_percent %}<br><small style="color:var(--danger);">−{{ item.discount_percent|floatformat:0 }}%</small>{% endif %}
+                        </td>
+                        <td style="text-align:center;">{{ item.quantity }}</td>
+                        <td style="text-align:right; font-weight:600;">{{ item.total|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" style="text-align:right; font-weight:700; font-size:15px; padding:12px 16px;">Итого:</td>
+                        <td style="text-align:right; font-weight:700; font-size:18px; color:var(--primary); padding:12px 16px;">
+                            {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
             </div>
         </div>
-    </div>
 
-    <!-- Status Panel -->
-    <div>
-        <div class="card">
-            <h3 class="card-title mb-2">Сумма заказа</h3>
-            <div class="detail-value large" style="text-align: center; margin: 16px 0;">
-                {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
+        <!-- Payment history -->
+        {% if order.payments.all %}
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+                <h3 class="card-title" style="margin:0;">История оплат</h3>
             </div>
-            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px;">
-                <span class="text-muted">Оплачено:</span>
-                <span class="fw-bold text-success">{{ order.paid_amount|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+            <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Сумма</th>
+                        <th>Способ</th>
+                        <th>Примечание</th>
+                        <th>Дата</th>
+                        <th>Фото</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pay in order.payments.all %}
+                    <tr>
+                        <td style="font-weight:600; color:var(--success);">+{{ pay.amount|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                        <td>
+                            {% if pay.method == 'qr' %}
+                            <span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:6px;font-size:12px;">QR mBank</span>
+                            {% else %}{{ pay.get_method_display }}{% endif %}
+                        </td>
+                        <td style="color:var(--text-muted);">{{ pay.note|default:"—" }}</td>
+                        <td style="color:var(--text-muted); white-space:nowrap;">{{ pay.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            {% if pay.qr_photo %}
+                            <a href="{{ pay.qr_photo.url }}" target="_blank"
+                               style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--primary);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                Фото
+                            </a>
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             </div>
-            <div style="display: flex; justify-content: space-between; padding-top: 4px;">
-                <span class="text-muted">Остаток (Долг):</span>
-                <span class="fw-bold {% if order.debt > 0 %}text-danger{% else %}text-muted{% endif %}">
-                    {{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
-                </span>
-            </div>
-            <p class="text-muted text-center mt-2">{{ items|length }} позиций</p>
         </div>
+        {% endif %}
 
+        <!-- Portal notes -->
         {% with notes=order.portal_notes.all %}
         {% if notes %}
-        <div class="card mt-2">
-            <h3 class="card-title mb-2" style="color:var(--accent-to);">Заметки клиента</h3>
+        <div class="card" style="margin-top:16px; border-left:3px solid var(--primary);">
+            <h3 class="card-title" style="color:var(--primary); margin-bottom:12px;">Заметки клиента</h3>
             {% for note in notes %}
-            <div style="border-left:3px solid {% if note.author_type == 'admin' %}var(--success){% else %}var(--accent-to){% endif %}; padding:8px 12px; margin-bottom:8px; border-radius:0 6px 6px 0; background:var(--bg-secondary);">
+            <div style="border-left:2px solid {% if note.author_type == 'admin' %}var(--success){% else %}var(--primary){% endif %};
+                        padding:8px 12px; margin-bottom:8px; border-radius:0 6px 6px 0; background:var(--bg-secondary);">
                 <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">
                     {% if note.author_type == 'admin' %}Вы{% else %}{{ note.client.name }}{% endif %}
                     {% if note.item %} · к «{{ note.item.product.name }}»{% endif %}
@@ -145,25 +179,231 @@
         </div>
         {% endif %}
         {% endwith %}
+    </div>
 
-        <div class="card mt-2">
-            <h3 class="card-title mb-2">Изменить статус</h3>
+    <!-- Right sidebar -->
+    <div style="position:sticky; top:16px; display:flex; flex-direction:column; gap:14px;">
+
+        <!-- Summary card -->
+        <div class="card">
+            <h3 class="card-title" style="margin-bottom:12px;">Сумма заказа</h3>
+            <div style="text-align:center; font-size:28px; font-weight:700; color:var(--primary); margin-bottom:14px;">
+                {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
+            </div>
+            <div style="font-size:13px; display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Оплачено:</span>
+                    <span style="font-weight:600; color:var(--success);">{{ order.paid_amount|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding-top:6px; border-top:1px solid var(--border);">
+                    <span style="color:var(--text-muted);">Остаток (Долг):</span>
+                    <span style="font-weight:700; {% if order.debt > 0 %}color:var(--danger){% else %}color:var(--text-muted){% endif %};">
+                        {{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
+                    </span>
+                </div>
+            </div>
+            <p style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:10px;">{{ items|length }} позиций</p>
+
+            {% if order.debt > 0 %}
+            <button onclick="openPayModal()" class="btn btn-success"
+                    style="width:100%; justify-content:center; margin-top:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+                Принять оплату
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Status -->
+        <div class="card">
+            <h3 class="card-title" style="margin-bottom:12px;">Изменить статус</h3>
             <form method="post" action="{% url 'order_status_update' order.pk %}">
                 {% csrf_token %}
-                <div class="form-group">
-                    <select name="status" class="form-input">
-                        <option value="new" {% if order.status == 'new' %}selected{% endif %}>Новый</option>
-                        <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>В обработке</option>
-                        <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Завершен</option>
-                        <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Отменен</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Обновить статус</button>
+                <select name="status" class="form-input" style="margin-bottom:10px;">
+                    <option value="new"        {% if order.status == 'new' %}selected{% endif %}>Новый</option>
+                    <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>В обработке</option>
+                    <option value="completed"  {% if order.status == 'completed' %}selected{% endif %}>Завершён</option>
+                    <option value="returned"   {% if order.status == 'returned' %}selected{% endif %}>Возврат</option>
+                    <option value="cancelled"  {% if order.status == 'cancelled' %}selected{% endif %}>Отменён</option>
+                </select>
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Обновить статус</button>
             </form>
-            {% if order.status == 'cancelled' %}
-            <p class="text-muted mt-1" style="font-size:12px;">⚠️ При отмене товары возвращаются на склад</p>
-            {% endif %}
         </div>
     </div>
 </div>
+
+<!-- ── Модальное окно: Принять оплату ── -->
+<div id="pay-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+     z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border-radius:16px; padding:28px; width:420px; max-width:95vw;
+                box-shadow:0 20px 60px rgba(0,0,0,0.4); animation:modalIn 0.2s ease-out;">
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+            <h3 style="margin:0; font-size:18px;">Принять оплату</h3>
+            <button onclick="closePayModal()" style="background:none;border:none;cursor:pointer;
+                    color:var(--text-muted);font-size:22px;line-height:1;">×</button>
+        </div>
+
+        <!-- Долг -->
+        {% if order.debt > 0 %}
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2);
+                    border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:13px;">
+            <span style="color:var(--text-muted);">Долг по заказу:</span>
+            <strong style="color:var(--danger); margin-left:8px;">
+                {{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
+            </strong>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'order_accept_payment' order.pk %}"
+              enctype="multipart/form-data" id="pay-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="form-label">Сумма ({{ user.currency_symbol }})</label>
+                <input type="number" name="amount" id="pay-amount" class="form-input"
+                       placeholder="0" step="0.01" min="0.01" required
+                       value="{{ order.debt|floatformat:0 }}"
+                       style="font-size:20px; font-weight:700; text-align:right;">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Способ оплаты</label>
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+                    {% for val, label in payment_methods %}
+                    <label style="cursor:pointer;">
+                        <input type="radio" name="method" value="{{ val }}"
+                               {% if val == 'cash' %}checked{% endif %}
+                               onchange="onMethodChange(this.value)"
+                               style="display:none;">
+                        <div class="pay-method-btn" data-method="{{ val }}"
+                             style="text-align:center; padding:10px 6px; border-radius:10px;
+                                    border:2px solid var(--border); font-size:12px; font-weight:600;
+                                    transition:all 0.15s; cursor:pointer;"
+                             onclick="selectMethod('{{ val }}')">
+                            {% if val == 'cash' %}💵{% elif val == 'card' %}💳{% elif val == 'transfer' %}📤{% else %}📱{% endif %}
+                            <br>{{ label }}
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- QR photo upload (показывается только для QR mBank) -->
+            <div id="qr-upload-section" style="display:none;" class="form-group">
+                <label class="form-label">Фото QR-кода / чека mBank</label>
+                <div id="qr-drop-zone"
+                     style="border:2px dashed var(--border); border-radius:12px; padding:20px;
+                            text-align:center; cursor:pointer; transition:border-color 0.2s;"
+                     onclick="document.getElementById('qr-file-input').click()"
+                     ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'"
+                     ondragleave="this.style.borderColor='var(--border)'"
+                     ondrop="handleDrop(event)">
+                    <div id="qr-preview-wrap" style="display:none; margin-bottom:10px;">
+                        <img id="qr-preview" src="" alt="Фото"
+                             style="max-width:100%; max-height:200px; border-radius:8px; object-fit:contain;">
+                    </div>
+                    <div id="qr-drop-text">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted); margin-bottom:8px;">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <div style="font-size:13px; color:var(--text-muted);">Нажмите или перетащите фото</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">JPG, PNG, WebP</div>
+                    </div>
+                    <input type="file" id="qr-file-input" name="qr_photo"
+                           accept="image/*" style="display:none;" onchange="previewQR(this)">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Примечание</label>
+                <input type="text" name="note" class="form-input" placeholder="Необязательно...">
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:4px;">
+                <button type="submit" class="btn btn-success" style="flex:1; justify-content:center; padding:12px;">
+                    Подтвердить оплату
+                </button>
+                <button type="button" onclick="closePayModal()" class="btn btn-secondary" style="padding:12px 16px;">
+                    Отмена
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+@keyframes modalIn {
+    from { opacity:0; transform:scale(0.95) translateY(10px); }
+    to   { opacity:1; transform:scale(1) translateY(0); }
+}
+.pay-method-btn.active {
+    border-color: var(--primary) !important;
+    background: rgba(59,130,246,0.08);
+    color: var(--primary);
+}
+</style>
+
+<script>
+var _initMethod = 'cash';
+
+function openPayModal() {
+    var m = document.getElementById('pay-modal');
+    m.style.display = 'flex';
+    document.getElementById('pay-amount').focus();
+    selectMethod(_initMethod);
+}
+function closePayModal() {
+    document.getElementById('pay-modal').style.display = 'none';
+}
+
+// Close on backdrop click
+document.getElementById('pay-modal').addEventListener('click', function(e) {
+    if (e.target === this) closePayModal();
+});
+
+// ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePayModal();
+});
+
+function selectMethod(val) {
+    _initMethod = val;
+    document.querySelectorAll('.pay-method-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.method === val);
+    });
+    var radio = document.querySelector('input[name="method"][value="' + val + '"]');
+    if (radio) radio.checked = true;
+    document.getElementById('qr-upload-section').style.display = val === 'qr' ? '' : 'none';
+}
+
+function onMethodChange(val) { selectMethod(val); }
+
+function previewQR(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('qr-preview').src = e.target.result;
+            document.getElementById('qr-preview-wrap').style.display = '';
+            document.getElementById('qr-drop-text').style.display = 'none';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    document.getElementById('qr-drop-zone').style.borderColor = 'var(--border)';
+    var files = event.dataTransfer.files;
+    if (files.length) {
+        var input = document.getElementById('qr-file-input');
+        // transfer file to input
+        var dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        previewQR(input);
+    }
+}
+</script>
 {% endblock %}

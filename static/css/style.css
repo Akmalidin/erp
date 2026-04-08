@@ -439,16 +439,25 @@ a:hover {
 
 .hamburger {
     display: flex;
-    background: none;
-    border: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
     color: var(--text-primary);
     cursor: pointer;
-    padding: 8px;
+    padding: 0;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-sm);
+    transition: var(--transition);
+    flex-shrink: 0;
 }
 
-.hamburger:hover { background: rgba(0,0,0,0.06); }
-.hamburger svg { width: 24px; height: 24px; }
+.hamburger:hover {
+    border-color: var(--border-hover);
+    background: var(--card-bg-hover);
+}
+.hamburger svg { width: 18px; height: 18px; }
 
 /* Sidebar collapsed (all screens) */
 .app-layout.sidebar-collapsed .sidebar {

@@ -13,4 +13,5 @@ urlpatterns = [
     path('quick-sale/<int:product_id>/', views.quick_sale, name='quick_sale'),
     path('<int:pk>/print/receipt/', views.print_receipt, name='print_receipt'),
     path('<int:pk>/print/invoice/', views.print_invoice, name='print_invoice'),
+    path('<int:pk>/pay/', views.order_accept_payment, name='order_accept_payment'),
 ]
