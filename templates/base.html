@@ -38,7 +38,7 @@
             </div>
 
             <nav class="sidebar-nav">
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Главное</div>
                     <a href="{% url 'dashboard' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -66,7 +66,7 @@
                         Каталог
                     </a>
                 </div>
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Склад</div>
                     <a href="{% url 'stock_list' %}"
                         class="sidebar-link {% if 'warehouse' in request.path and 'inventory' not in request.path and 'movements' not in request.path %}active{% endif %}">
@@ -156,7 +156,7 @@
                     </a>
                 </div>
 
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Закупки</div>
                     <a href="{% url 'purchase_list' %}"
                         class="sidebar-link {% if 'purchases' in request.path and 'suppliers' not in request.path %}active{% endif %}">
@@ -180,7 +180,7 @@
                     </a>
                 </div>
 
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Финансы</div>
                     <a href="{% url 'shift_list' %}"
                         class="sidebar-link {% if 'shifts' in request.path %}active{% endif %}">
@@ -203,7 +203,7 @@
                     </a>
                 </div>
 
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Аналитика</div>
                     <a href="{% url 'reports_index' %}"
                         class="sidebar-link {% if 'reports' in request.path and 'abc' not in request.path %}active{% endif %}">
@@ -225,7 +225,7 @@
                     </a>
                 </div>
 
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Портал клиентов</div>
                     <a href="{% url 'portal_notifications' %}"
                         class="sidebar-link {% if 'portal' in request.path %}active{% endif %}"
@@ -242,7 +242,7 @@
                         {% endif %}
                     </a>
                 </div>
-                <div class="sidebar-section">
+                <div class="sidebar-section" data-advanced>
                     <div class="sidebar-section-title">Система</div>
                     <a href="{% url 'bulk_price_change' %}"
                         class="sidebar-link {% if 'bulk-price' in request.path %}active{% endif %}">
@@ -380,6 +380,18 @@
                                       font-size:13px;width:160px;font-family:inherit;"
                                id="global-search-input">
                     </form>
+                    <!-- Simple Mode Toggle -->
+                    <button id="simple-mode-btn" title="Простой / Полный режим"
+                            onclick="toggleSimpleMode()"
+                            style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+                                   height:36px;padding:0 12px;display:flex;align-items:center;gap:6px;
+                                   cursor:pointer;transition:var(--transition);color:var(--text-secondary);
+                                   font-size:12px;font-family:inherit;white-space:nowrap;"
+                            onmouseover="this.style.borderColor='var(--border-hover)'"
+                            onmouseout="this.style.borderColor='var(--border)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
+                        <span id="simple-mode-label">Простой режим</span>
+                    </button>
                     <!-- Theme Toggle -->
                     <button id="theme-toggle" title="Переключить тему"
                             style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -534,6 +546,26 @@
                 }
             });
 
+            // ── Simple Mode ────────────────────────────────────────────────
+            const SIMPLE_KEY = 'simple_mode';
+
+            function applySimpleMode(simple) {
+                document.body.classList.toggle('simple-mode', simple);
+                const btn = document.getElementById('simple-mode-btn');
+                const lbl = document.getElementById('simple-mode-label');
+                if (btn) btn.style.borderColor = simple ? 'var(--accent)' : 'var(--border)';
+                if (btn) btn.style.color = simple ? 'var(--accent)' : 'var(--text-secondary)';
+                if (lbl) lbl.textContent = simple ? 'Полный режим' : 'Простой режим';
+                localStorage.setItem(SIMPLE_KEY, simple ? '1' : '0');
+            }
+
+            window.toggleSimpleMode = function() {
+                applySimpleMode(!document.body.classList.contains('simple-mode'));
+            };
+
+            // Init
+            applySimpleMode(localStorage.getItem(SIMPLE_KEY) === '1');
+
             // Sidebar toggle (works on all screen sizes)
             const hamburger = document.getElementById('hamburger-btn');
             const overlay = document.getElementById('sidebar-overlay');
@@ -581,6 +613,56 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    <script>
+    // ── Client autocomplete (works on any page with #order-client-search) ──
+    (function() {
+        function initClientSearch() {
+            var inp = document.getElementById('order-client-search');
+            var hid = document.getElementById('order-client-id');
+            var drop = document.getElementById('order-client-dropdown');
+            if (!inp || !drop) return;
+
+            var items = Array.from(drop.querySelectorAll('.client-autocomplete-item'));
+
+            function filter(q) {
+                var lq = q.toLowerCase();
+                var visible = 0;
+                items.forEach(function(item) {
+                    var match = item.textContent.toLowerCase().includes(lq);
+                    item.style.display = match ? '' : 'none';
+                    if (match) visible++;
+                });
+                drop.style.display = visible > 0 ? 'block' : 'none';
+            }
+
+            inp.addEventListener('input', function() {
+                if (hid) hid.value = '';
+                filter(this.value);
+            });
+
+            inp.addEventListener('focus', function() {
+                filter(this.value);
+            });
+
+            items.forEach(function(item) {
+                item.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    inp.value = item.dataset.name;
+                    if (hid) hid.value = item.dataset.id;
+                    drop.style.display = 'none';
+                });
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!inp.contains(e.target) && !drop.contains(e.target)) {
+                    drop.style.display = 'none';
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', initClientSearch);
+    })();
+    </script>
 
     <!-- ── Connectivity / Sync notification (desktop mode) ── -->
     {% if user.is_authenticated %}

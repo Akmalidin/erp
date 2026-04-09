@@ -17,13 +17,20 @@
         <h3 class="card-title mb-2">Данные заказа</h3>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="order-client">Клиент</label>
-                <select name="client" class="form-input" id="order-client">
-                    <option value="">— Выберите клиента —</option>
-                    {% for client in clients %}
-                    <option value="{{ client.pk }}">{{ client.name }}{% if client.company_name %} ({{ client.company_name }}){% endif %}</option>
-                    {% endfor %}
-                </select>
+                <label class="form-label">Клиент</label>
+                <input type="hidden" name="client" id="order-client-id">
+                <div class="client-search-wrap">
+                    <input type="text" id="order-client-search" placeholder="Поиск клиента..." autocomplete="off">
+                    <div class="client-autocomplete" id="order-client-dropdown" style="display:none;">
+                        {% for client in clients %}
+                        <div class="client-autocomplete-item"
+                             data-id="{{ client.pk }}"
+                             data-name="{{ client.name }}{% if client.company_name %} ({{ client.company_name }}){% endif %}">
+                            {{ client.name }}{% if client.company_name %} <span style="color:var(--text-muted);">({{ client.company_name }})</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label" for="order-price-level">Уровень цены</label>
