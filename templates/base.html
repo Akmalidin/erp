@@ -9,6 +9,7 @@
     <meta name="description" content="AutoParts CRM — система учета автозапчастей">
     <title>{% block title %}AutoParts CRM{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.13/dist/turbo.es2017.esm.js"></script>
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -335,7 +336,7 @@
                         <div class="sidebar-user-role">{{ user.get_role_display }}</div>
                     </div>
                 </a>
-                <a href="{% url 'logout' %}" class="sidebar-link" style="margin-top: 8px;">
+                <a href="{% url 'logout' %}" class="sidebar-link" style="margin-top: 8px;" data-turbo="false">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"></path>
@@ -525,7 +526,13 @@
         const saved = localStorage.getItem('crm_theme') || 'light';
         applyTheme(saved);
 
-        document.addEventListener('DOMContentLoaded', function() {
+        // Works on both normal load and Turbo navigation
+        function onPageLoad(fn) {
+            document.addEventListener('DOMContentLoaded', fn);
+            document.addEventListener('turbo:load', fn);
+        }
+
+        onPageLoad(function() {
             applyTheme(localStorage.getItem('crm_theme') || 'light');
             const btn = document.getElementById('theme-toggle');
             if (btn) {
@@ -661,6 +668,7 @@
             });
         }
         document.addEventListener('DOMContentLoaded', initClientSearch);
+        document.addEventListener('turbo:load', initClientSearch);
     })();
     </script>
 
