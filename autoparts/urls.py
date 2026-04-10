@@ -17,6 +17,7 @@ urlpatterns = [
     path('purchases/', include('purchases.urls')),
     path('portal/', include('portal.urls')),
     path('desktop/', include('desktop.urls')),
+    path('sync/', include('sync_urls')),
 ]
 
 if settings.DEBUG:

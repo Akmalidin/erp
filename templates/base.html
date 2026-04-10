@@ -392,6 +392,19 @@
                                       font-size:13px;width:160px;font-family:inherit;"
                                id="global-search-input">
                     </form>
+                    <!-- Sync Button (desktop app only) -->
+                    {% if request.META.SERVER_PORT == '8765' or request.META.HTTP_HOST == '127.0.0.1:8765' %}
+                    <button id="sync-btn" title="Синхронизация с сервером" onclick="openSyncModal()"
+                            style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+                                   height:36px;padding:0 12px;display:flex;align-items:center;gap:6px;
+                                   cursor:pointer;transition:var(--transition);color:var(--text-secondary);
+                                   font-size:12px;font-family:inherit;white-space:nowrap;"
+                            onmouseover="this.style.borderColor='var(--border-hover)'"
+                            onmouseout="this.style.borderColor='var(--border)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        Синхронизация
+                    </button>
+                    {% endif %}
                     <!-- Simple Mode Toggle -->
                     <button id="simple-mode-btn" title="Простой / Полный режим"
                             onclick="toggleSimpleMode()"
@@ -841,6 +854,156 @@
     })();
     </script>
     {% endif %}
+
+<!-- ═══ SYNC MODAL ═══════════════════════════════════════════════════════════ -->
+<div id="sync-modal" style="display:none; position:fixed; inset:0; z-index:9999;
+     background:rgba(0,0,0,0.75); backdrop-filter:blur(4px);
+     align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:16px;
+                padding:32px; width:100%; max-width:480px; margin:16px; position:relative;">
+
+        <!-- Header -->
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:24px;">
+            <div id="sync-spinner" style="width:36px;height:36px;border:3px solid var(--border);
+                 border-top-color:var(--primary,#6c63ff); border-radius:50%;
+                 animation:spin 0.8s linear infinite; flex-shrink:0;"></div>
+            <div>
+                <h2 style="margin:0; font-size:18px;">Синхронизация данных</h2>
+                <p id="sync-subtitle" style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">
+                    Подготовка...
+                </p>
+            </div>
+        </div>
+
+        <!-- Steps log -->
+        <div id="sync-steps" style="background:var(--bg); border:1px solid var(--border);
+             border-radius:10px; padding:12px 14px; min-height:80px; max-height:260px;
+             overflow-y:auto; font-size:13px; line-height:1.7;"></div>
+
+        <!-- Progress bar -->
+        <div style="height:4px; background:var(--border); border-radius:4px; margin-top:16px; overflow:hidden;">
+            <div id="sync-progress-bar" style="height:100%; width:0%; background:var(--primary,#6c63ff);
+                 transition:width 0.4s ease; border-radius:4px;"></div>
+        </div>
+
+        <!-- Actions (shown after done) -->
+        <div id="sync-actions" style="display:none; margin-top:20px; text-align:center;">
+            <button class="btn btn-primary" onclick="closeSyncModal()" style="min-width:140px;">
+                Готово
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+let _syncPollInterval = null;
+
+function openSyncModal() {
+    const modal = document.getElementById('sync-modal');
+    modal.style.display = 'flex';
+    document.getElementById('sync-steps').innerHTML = '';
+    document.getElementById('sync-actions').style.display = 'none';
+    document.getElementById('sync-spinner').style.animation = 'spin 0.8s linear infinite';
+    document.getElementById('sync-subtitle').textContent = 'Запускаем синхронизацию...';
+    document.getElementById('sync-progress-bar').style.width = '5%';
+
+    // Start sync
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+    const csrfToken = csrf ? csrf.value : getCookie('csrftoken');
+
+    fetch('{% url "sync_run" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.ok && data.error) {
+            appendSyncStep(data.error, 'error');
+            document.getElementById('sync-subtitle').textContent = 'Ошибка';
+            document.getElementById('sync-spinner').style.animation = 'none';
+            document.getElementById('sync-actions').style.display = 'block';
+            return;
+        }
+        // Start polling for status
+        _syncPollInterval = setInterval(pollSyncStatus, 600);
+    })
+    .catch(err => {
+        appendSyncStep('Ошибка соединения: ' + err, 'error');
+        document.getElementById('sync-actions').style.display = 'block';
+    });
+}
+
+function pollSyncStatus() {
+    fetch('{% url "sync_status" %}')
+    .then(r => r.json())
+    .then(data => {
+        // Update steps
+        const container = document.getElementById('sync-steps');
+        container.innerHTML = '';
+        data.steps.forEach((step, i) => {
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.gap = '8px';
+            div.style.padding = '2px 0';
+            const icon = step.status === 'error'
+                ? '<span style="color:#e74c3c;flex-shrink:0;">✗</span>'
+                : '<span style="color:#2ecc71;flex-shrink:0;">✓</span>';
+            div.innerHTML = icon + '<span>' + step.msg + '</span>';
+            container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+
+        // Update progress bar
+        if (data.done) {
+            document.getElementById('sync-progress-bar').style.width = '100%';
+        } else {
+            const pct = Math.min(5 + data.steps.length * 20, 90);
+            document.getElementById('sync-progress-bar').style.width = pct + '%';
+        }
+
+        // Update subtitle
+        if (!data.done && data.steps.length > 0) {
+            document.getElementById('sync-subtitle').textContent = data.steps[data.steps.length - 1].msg;
+        }
+
+        if (data.done) {
+            clearInterval(_syncPollInterval);
+            _syncPollInterval = null;
+            document.getElementById('sync-spinner').style.animation = 'none';
+            document.getElementById('sync-subtitle').textContent =
+                data.error ? 'Завершено с ошибками' : 'Синхронизация завершена успешно';
+            document.getElementById('sync-actions').style.display = 'block';
+        }
+    });
+}
+
+function appendSyncStep(msg, status) {
+    const container = document.getElementById('sync-steps');
+    const div = document.createElement('div');
+    const icon = status === 'error'
+        ? '<span style="color:#e74c3c">✗</span> '
+        : '<span style="color:#2ecc71">✓</span> ';
+    div.innerHTML = icon + msg;
+    container.appendChild(div);
+}
+
+function closeSyncModal() {
+    document.getElementById('sync-modal').style.display = 'none';
+    if (_syncPollInterval) { clearInterval(_syncPollInterval); _syncPollInterval = null; }
+    // Reload page to reflect synced data
+    window.location.reload();
+}
+
+function getCookie(name) {
+    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    return v ? v[2] : null;
+}
+</script>
 </body>
 
 </html>
