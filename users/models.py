@@ -30,6 +30,7 @@ class User(AbstractUser):
     ROLE_CHOICES = [
         ('admin', 'Администратор'),
         ('manager', 'Менеджер'),
+        ('employee', 'Сотрудник'),
     ]
 
     CURRENCY_CHOICES = [
@@ -40,11 +41,26 @@ class User(AbstractUser):
     ]
 
     username = None
-    email = models.EmailField('Email', unique=True)
+    email = models.EmailField('Email', unique=True, blank=True, default='')
     role = models.CharField('Роль', max_length=20, choices=ROLE_CHOICES, default='manager')
     company_name = models.CharField('Компания', max_length=255, blank=True)
-    phone = models.CharField('Телефон', max_length=30, blank=True)
-    currency = models.CharField('Валюта', max_length=3, choices=CURRENCY_CHOICES, default='KZT')
+    phone = models.CharField('Телефон', max_length=30, blank=True, db_index=True)
+    currency = models.CharField('Валюта', max_length=3, choices=CURRENCY_CHOICES, default='KGS')
+    simple_mode = models.BooleanField('Простой режим', default=False)
+    price_level = models.ForeignKey(
+        'catalog.PriceLevel',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name='Уровень цен',
+        related_name='users',
+    )
+    manager = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        verbose_name='Менеджер (для сотрудников)',
+        related_name='employees',
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -65,6 +81,17 @@ class User(AbstractUser):
     @property
     def is_manager(self):
         return self.role == 'manager'
+
+    @property
+    def is_employee(self):
+        return self.role == 'employee'
+
+    @property
+    def effective_user(self):
+        """For employees, return their manager (who owns the data). For others, return self."""
+        if self.role == 'employee' and self.manager_id:
+            return self.manager
+        return self
 
     @property
     def currency_symbol(self):

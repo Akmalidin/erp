@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, F
 from django.core.paginator import Paginator
+from django.http import JsonResponse
 
 from catalog.models import Product
 from catalog.utils import get_smart_search_filter
@@ -78,9 +79,12 @@ def stock_transfer(request):
                 note=f'Перемещение со склада {from_wh.name}'
             )
             
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if is_ajax:
+                return JsonResponse({'ok': True})
             messages.success(request, f'Перемещено {qty} шт. "{product.name}"')
             return redirect('movement_history')
-            
+
     return render(request, 'warehouse/transfer.html', {
         'warehouses': warehouses,
         'products': products

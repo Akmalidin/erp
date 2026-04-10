@@ -4,37 +4,207 @@
 {% block navbar_title %}Перемещение между складами{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<style>
+.transfer-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+.transfer-col {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.transfer-col-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.product-filter {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+.product-filter input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 14px;
+}
+.product-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+.product-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    gap: 10px;
+}
+.product-row:last-child { border-bottom: none; }
+.product-row:hover { background: var(--hover, rgba(255,255,255,0.05)); }
+.product-row.added { opacity: 0.4; pointer-events: none; }
+.product-info { flex: 1; min-width: 0; }
+.product-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.product-oem { font-size: 12px; color: var(--text-muted); }
+.product-stock { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.btn-add-queue {
+    background: var(--primary, #6c63ff);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.queue-list { max-height: 400px; overflow-y: auto; }
+.queue-empty { padding: 40px 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
+.queue-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.queue-item:last-child { border-bottom: none; }
+.queue-item-name { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-item-qty {
+    width: 60px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: var(--text);
+    font-size: 14px;
+    text-align: center;
+}
+.queue-item-max { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.btn-remove-queue {
+    background: transparent;
+    border: none;
+    color: var(--danger, #e74c3c);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+}
+
+.transfer-wh-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+}
+.transfer-wh-row label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; display: block; }
+.transfer-wh-row select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 14px;
+}
+.transfer-actions {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+}
+.queue-count-badge {
+    background: var(--primary, #6c63ff);
+    color: #fff;
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .transfer-layout { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="page-header" style="margin-bottom: 16px;">
     <h1>Перемещение товара</h1>
+    <a href="{% url 'stock_list' %}" class="btn btn-secondary">← Назад</a>
 </div>
 
-<div class="card animate-in" style="max-width: 600px; margin: 0 auto;">
-    <form method="post" class="p-4">
-        {% csrf_token %}
-        
-        <div class="mb-4">
-            <label class="form-label">Выберите товар</label>
-            <select name="product" class="form-input search-select" required>
-                <option value="">— Начните вводить название или OEM —</option>
-                {% for p in products %}
-                <option value="{{ p.pk }}">{{ p.oem_number }} — {{ p.name }} (Остаток: {{ p.stock_quantity }})</option>
-                {% endfor %}
-            </select>
+{% if messages %}
+<div style="margin-bottom: 16px;">
+{% for m in messages %}
+<div class="alert alert-{{ m.tags }}" style="padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; background: var(--card-bg); border: 1px solid var(--border);">{{ m }}</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<div class="transfer-layout">
+    <!-- LEFT: Product list -->
+    <div class="transfer-col">
+        <div class="transfer-col-header">
+            Товары
+        </div>
+        <div class="product-filter">
+            <input type="text" id="product-filter-input" placeholder="Поиск по названию или OEM..." autocomplete="off">
+        </div>
+        <div class="product-list" id="product-list">
+            {% for p in products %}
+            <div class="product-row"
+                 data-pk="{{ p.pk }}"
+                 data-name="{{ p.name|escapejs }}"
+                 data-oem="{{ p.oem_number|default:''|escapejs }}"
+                 data-stock="{{ p.stock_quantity }}">
+                <div class="product-info">
+                    <div class="product-name">{{ p.name }}</div>
+                    {% if p.oem_number %}<div class="product-oem">{{ p.oem_number }}</div>{% endif %}
+                </div>
+                <div class="product-stock">{{ p.stock_quantity }} шт.</div>
+                <button class="btn-add-queue" onclick="addToQueue(this)">+</button>
+            </div>
+            {% empty %}
+            <div class="queue-empty">Нет товаров</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- RIGHT: Transfer queue -->
+    <div class="transfer-col">
+        <div class="transfer-col-header">
+            Очередь перемещения
+            <span class="queue-count-badge" id="queue-badge">0</span>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div class="mb-4">
-                <label class="form-label">Откуда (Склад-источник)</label>
-                <select name="from_warehouse" class="form-input" required>
+        <div class="queue-list" id="queue-list">
+            <div class="queue-empty" id="queue-empty-msg">Добавьте товары из списка слева</div>
+        </div>
+
+        <!-- Warehouse selectors -->
+        <div class="transfer-wh-row">
+            <div>
+                <label>Откуда</label>
+                <select id="from-warehouse">
                     {% for w in warehouses %}
                     <option value="{{ w.pk }}" {% if w.is_default %}selected{% endif %}>{{ w.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-
-            <div class="mb-4">
-                <label class="form-label">Куда (Склад-получатель)</label>
-                <select name="to_warehouse" class="form-input" required>
+            <div>
+                <label>Куда</label>
+                <select id="to-warehouse">
                     <option value="">— Выберите склад —</option>
                     {% for w in warehouses %}
                     <option value="{{ w.pk }}">{{ w.name }}</option>
@@ -43,28 +213,151 @@
             </div>
         </div>
 
-        <div class="mb-4">
-            <label class="form-label">Количество</label>
-            <input type="number" name="quantity" class="form-input" min="1" value="1" required>
+        <div style="padding: 0 14px 10px;">
+            <input type="text" id="transfer-note" class="form-input" placeholder="Примечание (необязательно)" style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-size:14px;">
         </div>
 
-        <div class="mb-4">
-            <label class="form-label">Примечание (необязательно)</label>
-            <input type="text" name="note" class="form-input" placeholder="например: Пополнение витрины">
+        <div class="transfer-actions">
+            <button class="btn btn-primary" style="flex:1;" onclick="submitTransfer()">Выполнить перемещение</button>
         </div>
-
-        <div style="display: flex; gap: 12px; margin-top: 20px;">
-            <button type="submit" class="btn btn-primary" style="flex: 1;">Выполнить перемещение</button>
-            <a href="{% url 'stock_list' %}" class="btn btn-secondary" style="flex: 1; text-align: center;">Отмена</a>
-        </div>
-    </form>
+        <div id="transfer-status" style="padding: 0 14px 12px; font-size: 13px;"></div>
+    </div>
 </div>
 
-<!-- Styling for the select if needed -->
-<style>
-    .search-select {
-        height: 50px;
-        font-size: 16px;
+<!-- Hidden form for CSRF -->
+<form id="transfer-form" method="post" style="display:none;">
+    {% csrf_token %}
+</form>
+
+<script>
+const queue = []; // [{pk, name, qty, stock}]
+
+// Product filter
+document.getElementById('product-filter-input').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#product-list .product-row').forEach(row => {
+        const name = row.dataset.name.toLowerCase();
+        const oem = row.dataset.oem.toLowerCase();
+        row.style.display = (name.includes(q) || oem.includes(q)) ? '' : 'none';
+    });
+});
+
+function addToQueue(btn) {
+    const row = btn.closest('.product-row');
+    const pk = row.dataset.pk;
+    const name = row.dataset.name;
+    const stock = parseInt(row.dataset.stock);
+
+    if (queue.find(i => i.pk === pk)) return;
+
+    queue.push({ pk, name, stock, qty: 1 });
+    row.classList.add('added');
+    renderQueue();
+}
+
+function removeFromQueue(pk) {
+    const idx = queue.findIndex(i => i.pk === pk);
+    if (idx === -1) return;
+    queue.splice(idx, 1);
+    // Re-enable the product row
+    const row = document.querySelector(`#product-list .product-row[data-pk="${pk}"]`);
+    if (row) row.classList.remove('added');
+    renderQueue();
+}
+
+function renderQueue() {
+    const list = document.getElementById('queue-list');
+    const emptyMsg = document.getElementById('queue-empty-msg');
+    document.getElementById('queue-badge').textContent = queue.length;
+
+    if (queue.length === 0) {
+        list.innerHTML = '<div class="queue-empty" id="queue-empty-msg">Добавьте товары из списка слева</div>';
+        return;
     }
-</style>
+
+    list.innerHTML = queue.map(item => `
+        <div class="queue-item" data-pk="${item.pk}">
+            <div class="queue-item-name">${item.name}</div>
+            <div class="queue-item-max">макс ${item.stock}</div>
+            <input type="number" class="queue-item-qty" value="${item.qty}" min="1" max="${item.stock}"
+                   onchange="updateQty('${item.pk}', this.value)"
+                   oninput="updateQty('${item.pk}', this.value)">
+            <button class="btn-remove-queue" onclick="removeFromQueue('${item.pk}')" title="Убрать">×</button>
+        </div>
+    `).join('');
+}
+
+function updateQty(pk, val) {
+    const item = queue.find(i => i.pk === pk);
+    if (!item) return;
+    let qty = parseInt(val) || 1;
+    if (qty < 1) qty = 1;
+    if (qty > item.stock) qty = item.stock;
+    item.qty = qty;
+}
+
+async function submitTransfer() {
+    if (queue.length === 0) {
+        alert('Добавьте хотя бы один товар в очередь');
+        return;
+    }
+    const fromWh = document.getElementById('from-warehouse').value;
+    const toWh = document.getElementById('to-warehouse').value;
+    const note = document.getElementById('transfer-note').value;
+
+    if (!fromWh || !toWh) { alert('Выберите склады'); return; }
+    if (fromWh === toWh) { alert('Склады отправления и назначения должны быть разными'); return; }
+
+    const csrf = document.querySelector('#transfer-form [name=csrfmiddlewaretoken]').value;
+    const statusEl = document.getElementById('transfer-status');
+    statusEl.textContent = 'Выполняется...';
+
+    let successCount = 0;
+    let errors = [];
+
+    for (const item of queue) {
+        // Sync qty from input in case user typed without blur
+        const inputEl = document.querySelector(`.queue-item[data-pk="${item.pk}"] .queue-item-qty`);
+        if (inputEl) item.qty = parseInt(inputEl.value) || 1;
+
+        const body = new URLSearchParams({
+            csrfmiddlewaretoken: csrf,
+            product: item.pk,
+            from_warehouse: fromWh,
+            to_warehouse: toWh,
+            quantity: item.qty,
+            note: note || `Перемещение`
+        });
+
+        try {
+            const resp = await fetch('{% url "stock_transfer" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: body.toString()
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                successCount++;
+            } else {
+                errors.push(item.name);
+            }
+        } catch(e) {
+            errors.push(item.name);
+        }
+    }
+
+    if (errors.length === 0) {
+        statusEl.style.color = 'var(--success, #2ecc71)';
+        statusEl.textContent = `Перемещено ${successCount} позиций успешно`;
+        // Clear queue and re-enable rows
+        queue.length = 0;
+        document.querySelectorAll('#product-list .product-row.added').forEach(r => r.classList.remove('added'));
+        renderQueue();
+        setTimeout(() => { window.location.href = '{% url "movement_history" %}'; }, 1200);
+    } else {
+        statusEl.style.color = 'var(--danger, #e74c3c)';
+        statusEl.textContent = `Успешно: ${successCount}. Ошибки: ${errors.join(', ')}`;
+    }
+}
+</script>
 {% endblock %}

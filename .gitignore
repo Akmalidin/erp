@@ -52,3 +52,4 @@ tmp_imports/
 # Logs
 *.log
 logs/
+browser_profile/

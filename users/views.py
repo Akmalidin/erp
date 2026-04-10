@@ -291,3 +291,76 @@ def superadmin_user_data(request, user_id):
         'clients': clients,
     }
     return render(request, 'users/superadmin_user_data.html', context)
+
+
+@login_required
+def employee_list(request):
+    """Manager: view and manage employees."""
+    from .models import User
+    from catalog.models import PriceLevel
+
+    if request.user.is_employee:
+        messages.error(request, 'Доступ запрещён')
+        return redirect('dashboard')
+
+    price_levels = PriceLevel.objects.filter(user=request.user)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'create':
+            phone = request.POST.get('phone', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            password = request.POST.get('password', '').strip()
+            price_level_id = request.POST.get('price_level') or None
+            simple_mode = request.POST.get('simple_mode') == 'on'
+
+            if not phone:
+                messages.error(request, 'Номер телефона обязателен')
+            elif len(password) < 6:
+                messages.error(request, 'Пароль минимум 6 символов')
+            elif User.objects.filter(phone=phone).exists():
+                messages.error(request, 'Пользователь с таким телефоном уже существует')
+            else:
+                import uuid
+                emp = User(
+                    email=f'emp_{uuid.uuid4().hex[:12]}@noemail.local',
+                    phone=phone,
+                    first_name=first_name,
+                    role='employee',
+                    simple_mode=simple_mode,
+                    manager=request.user,
+                    currency=request.user.currency,
+                )
+                if price_level_id:
+                    emp.price_level_id = price_level_id
+                emp.set_password(password)
+                emp.save()
+                messages.success(request, f'Сотрудник {first_name or phone} создан')
+            return redirect('employee_list')
+
+        elif action == 'delete':
+            emp_id = request.POST.get('employee_id')
+            emp = User.objects.filter(pk=emp_id, manager=request.user, role='employee').first()
+            if emp:
+                emp.delete()
+                messages.success(request, 'Сотрудник удалён')
+            return redirect('employee_list')
+
+        elif action == 'set_password':
+            emp_id = request.POST.get('employee_id')
+            new_pass = request.POST.get('new_password', '').strip()
+            emp = User.objects.filter(pk=emp_id, manager=request.user, role='employee').first()
+            if emp and len(new_pass) >= 6:
+                emp.set_password(new_pass)
+                emp.save()
+                messages.success(request, 'Пароль изменён')
+            else:
+                messages.error(request, 'Пароль минимум 6 символов')
+            return redirect('employee_list')
+
+    employees = User.objects.filter(manager=request.user, role='employee').select_related('price_level')
+    return render(request, 'users/employee_list.html', {
+        'employees': employees,
+        'price_levels': price_levels,
+    })

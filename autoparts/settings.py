@@ -122,6 +122,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
 
+AUTHENTICATION_BACKENDS = [
+    'users.backends.PhoneOrEmailBackend',
+]
+
 # Internationalization
 LANGUAGE_CODE = 'ru'
 TIME_ZONE = 'Asia/Almaty'

@@ -430,3 +430,64 @@ def product_search_api(request):
         } for p in products]
 
     return JsonResponse({'results': results})
+
+
+@login_required
+def purchase_pay(request, pk):
+    """POST: record a payment for a purchase order."""
+    order = get_object_or_404(PurchaseOrder, pk=pk, user=request.user)
+    if request.method == 'POST':
+        amount = Decimal(str(request.POST.get('amount', '0') or '0'))
+        if amount > 0:
+            order.paid_amount += amount
+            order.save(update_fields=['paid_amount'])
+            if order.supplier and order.supplier.debt >= amount:
+                order.supplier.debt -= amount
+                order.supplier.save(update_fields=['debt'])
+            messages.success(request, f'Оплата {amount:,.0f} {request.user.currency_symbol} принята')
+        else:
+            messages.error(request, 'Укажите сумму оплаты')
+    return redirect('purchase_detail', pk=pk)
+
+
+@login_required
+def purchase_add_item(request, pk):
+    """POST: add a product line to a draft purchase order inline."""
+    order = get_object_or_404(PurchaseOrder, pk=pk, user=request.user, status='draft')
+    if request.method == 'POST':
+        product_id = request.POST.get('product_id')
+        qty = max(1, int(request.POST.get('qty', 1) or 1))
+        price_raw = request.POST.get('price', '').strip()
+
+        product = get_object_or_404(Product, pk=product_id, user=request.user)
+        price = Decimal(price_raw) if price_raw else (product.price_purchase or Decimal('0'))
+
+        if order.items.count() >= 100:
+            messages.error(request, 'Максимум 100 позиций в одной закупке')
+            return redirect('purchase_detail', pk=pk)
+
+        item, created = PurchaseItem.objects.get_or_create(
+            order=order, product=product,
+            defaults={'quantity': qty, 'price': price}
+        )
+        if not created:
+            item.quantity += qty
+            item.price = price
+            item.save(update_fields=['quantity', 'price'])
+
+        order.total_price = sum(i.quantity * i.price for i in order.items.all())
+        order.save(update_fields=['total_price'])
+        messages.success(request, f'"{product.name}" добавлен')
+    return redirect('purchase_detail', pk=pk)
+
+
+@login_required
+def purchase_remove_item(request, pk, item_pk):
+    """POST: remove a line item from a draft purchase."""
+    order = get_object_or_404(PurchaseOrder, pk=pk, user=request.user, status='draft')
+    item = get_object_or_404(PurchaseItem, pk=item_pk, order=order)
+    item.delete()
+    order.total_price = sum(i.quantity * i.price for i in order.items.all())
+    order.save(update_fields=['total_price'])
+    messages.success(request, 'Позиция удалена')
+    return redirect('purchase_detail', pk=pk)

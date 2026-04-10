@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}Сотрудники{% endblock %}
+{% block navbar_title %}Управление сотрудниками{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Сотрудники</h1>
+        <p class="page-subtitle">{{ employees|length }} сотрудник(ов)</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('create-modal').style.display='flex'">+ Добавить сотрудника</button>
+</div>
+
+{% if messages %}
+{% for m in messages %}
+<div class="alert alert-{{ m.tags }}" style="padding:10px 14px; border-radius:8px; margin-bottom:12px; background:var(--card-bg); border:1px solid var(--border);">{{ m }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Имя</th>
+                <th>Телефон</th>
+                <th>Уровень цен</th>
+                <th>Простой режим</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr>
+                <td><strong>{{ emp.first_name|default:"—" }}</strong></td>
+                <td>{{ emp.phone|default:"—" }}</td>
+                <td>{{ emp.price_level.name|default:"—" }}</td>
+                <td>
+                    {% if emp.simple_mode %}
+                    <span class="badge badge-ok">Вкл</span>
+                    {% else %}
+                    <span class="badge" style="background:var(--border); color:var(--text-muted);">Выкл</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="showPassForm({{ emp.pk }})">Пароль</button>
+                        <form method="post" style="display:inline;" onsubmit="return confirm('Удалить сотрудника?')">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="employee_id" value="{{ emp.pk }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                        </form>
+                    </div>
+                    <div id="pass-form-{{ emp.pk }}" style="display:none; margin-top:8px;">
+                        <form method="post" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="set_password">
+                            <input type="hidden" name="employee_id" value="{{ emp.pk }}">
+                            <input type="text" name="new_password" class="form-input" placeholder="Новый пароль" style="width:140px; padding:6px 10px; font-size:13px;">
+                            <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center" style="padding:40px; color:var(--text-muted);">Сотрудников пока нет</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Create Employee Modal -->
+<div id="create-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:420px; margin:16px;">
+        <h2 style="margin:0 0 20px;">Новый сотрудник</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+
+            <div class="mb-4">
+                <label class="form-label">Имя</label>
+                <input type="text" name="first_name" class="form-input" placeholder="Имя сотрудника">
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Номер телефона <span style="color:var(--danger)">*</span></label>
+                <input type="text" name="phone" class="form-input" placeholder="+7 700 000 00 00" required>
+                <small style="color:var(--text-muted);">Используется для входа в систему</small>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Пароль <span style="color:var(--danger)">*</span></label>
+                <input type="text" name="password" class="form-input" placeholder="Минимум 6 символов" required minlength="6">
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Уровень цен</label>
+                <select name="price_level" class="form-input">
+                    <option value="">— Базовый —</option>
+                    {% for pl in price_levels %}
+                    <option value="{{ pl.pk }}">{{ pl.name }} (+{{ pl.markup_percent }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4" style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" name="simple_mode" id="emp-simple-mode" checked style="width:18px; height:18px;">
+                <label for="emp-simple-mode" style="margin:0; cursor:pointer;">Простой режим (скрыть расширенные функции)</label>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;">Создать</button>
+                <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('create-modal').style.display='none'">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showPassForm(id) {
+    const el = document.getElementById('pass-form-' + id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+// Close modal on backdrop click
+document.getElementById('create-modal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+});
+</script>
+{% endblock %}

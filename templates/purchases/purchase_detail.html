@@ -7,99 +7,118 @@
 {% block navbar_actions %}
 {% if order.status == 'draft' %}
 <a href="{% url 'purchase_import' order.pk %}" class="btn btn-secondary">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
     Импорт Excel
 </a>
-<form method="post" action="{% url 'purchase_confirm' order.pk %}" style="display:inline; margin-left:8px;">
+<form method="post" action="{% url 'purchase_confirm' order.pk %}" style="display:inline;margin-left:8px;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-primary"
-            onclick="return confirm('Провести закупку? Остатки и закупочные цены будут обновлены.')">
-        ✓ Провести
-    </button>
+    <button type="submit" class="btn btn-primary" onclick="return confirm('Провести закупку?')">✓ Провести</button>
 </form>
 <form method="post" action="{% url 'purchase_cancel' order.pk %}" style="display:inline;margin-left:8px;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-danger" onclick="return confirm('Отменить закупку?')">Отменить</button>
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Отменить?')">Отменить</button>
 </form>
 {% elif order.status == 'confirmed' %}
 <form method="post" action="{% url 'purchase_cancel' order.pk %}" style="display:inline;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-danger"
-            onclick="return confirm('Отменить проведённую закупку? Остатки будут уменьшены обратно.')">
-        Отменить
-    </button>
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Отменить проведённую закупку?')">Отменить</button>
 </form>
 {% endif %}
 {% endblock %}
 
 {% block content %}
-<div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start;">
-    <!-- Items -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Позиции</h3>
-            <span class="text-muted">{{ items|length }} позиций</span>
-        </div>
-        {% if items %}
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>OEM</th>
-                        <th>Название</th>
-                        <th style="text-align:center;">Кол-во</th>
-                        <th style="text-align:right;">Цена</th>
-                        <th style="text-align:right;">Итого</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td class="text-muted" style="font-size:12px;">
-                            {{ item.product.oem_number|default:"—" }}
-                        </td>
-                        <td>
-                            {% if item.product %}
-                            <a href="{% url 'product_detail' item.product.pk %}">{{ item.product.name }}</a>
-                            {% else %}
-                            <span class="text-muted">Удалённый товар</span>
-                            {% endif %}
-                        </td>
-                        <td style="text-align:center;">{{ item.quantity }}</td>
-                        <td style="text-align:right;">{{ item.price|floatformat:2|intcomma }} {{ user.currency_symbol }}</td>
-                        <td style="text-align:right;font-weight:600;">
-                            {{ item.total|floatformat:0|intcomma }} {{ user.currency_symbol }}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="4" style="text-align:right;font-weight:600;padding:12px 16px;">Итого:</td>
-                        <td style="text-align:right;font-weight:700;color:var(--accent-to);padding:12px 16px;">
-                            {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-        {% else %}
-        <div class="empty-state" style="padding:32px;">
-            <p>Позиции не добавлены</p>
+<div style="display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;">
+
+    <!-- Left: items + product search -->
+    <div>
+
+        <!-- Product search (only for draft) -->
+        {% if order.status == 'draft' %}
+        <div class="card mb-3" style="padding:16px 20px;">
+            <div style="font-weight:600;margin-bottom:10px;font-size:14px;">+ Добавить товар</div>
+            <div style="position:relative;">
+                <input type="text" id="pur-search" placeholder="Поиск по OEM или названию..."
+                       autocomplete="off"
+                       style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:9px 14px;font-size:14px;
+                              color:var(--text-primary);outline:none;font-family:inherit;"
+                       onfocus="this.style.borderColor='var(--accent)'"
+                       onblur="setTimeout(()=>{document.getElementById('pur-drop').style.display='none'},200)">
+                <div id="pur-drop" style="display:none;position:absolute;top:100%;left:0;right:0;
+                     background:#1e1e2e;border:1px solid var(--border);border-radius:var(--radius-sm);
+                     max-height:260px;overflow-y:auto;z-index:500;margin-top:2px;
+                     box-shadow:0 8px 24px rgba(0,0,0,0.4);"></div>
+            </div>
         </div>
         {% endif %}
-    </div>
 
-    <!-- Info card -->
-    <div>
+        <!-- Items table -->
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Информация</h3>
+                <h3 class="card-title">Позиции</h3>
+                <span class="text-muted">{{ items|length }} / 100</span>
             </div>
+            {% if items %}
+            <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>OEM</th>
+                            <th>Название</th>
+                            <th style="text-align:center;">Кол-во</th>
+                            <th style="text-align:right;">Цена</th>
+                            <th style="text-align:right;">Итого</th>
+                            {% if order.status == 'draft' %}<th></th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td class="text-muted" style="font-size:12px;">{{ item.product.oem_number|default:"—" }}</td>
+                            <td>
+                                {% if item.product %}
+                                <a href="{% url 'product_detail' item.product.pk %}">{{ item.product.name }}</a>
+                                {% else %}<span class="text-muted">Удалённый товар</span>{% endif %}
+                            </td>
+                            <td style="text-align:center;">{{ item.quantity }}</td>
+                            <td style="text-align:right;">{{ item.price|floatformat:2|intcomma }} {{ user.currency_symbol }}</td>
+                            <td style="text-align:right;font-weight:600;">{{ item.total|floatformat:0|intcomma }} {{ user.currency_symbol }}</td>
+                            {% if order.status == 'draft' %}
+                            <td style="text-align:center;">
+                                <form method="post" action="{% url 'purchase_remove_item' order.pk item.pk %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;" title="Удалить">×</button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{% if order.status == 'draft' %}5{% else %}4{% endif %}" style="text-align:right;font-weight:600;padding:12px 16px;">Итого:</td>
+                            <td style="text-align:right;font-weight:700;color:var(--accent-to);padding:12px 16px;">
+                                {{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div style="padding:40px;text-align:center;color:var(--text-muted);">
+                Позиции не добавлены — используйте поиск выше
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: info + payment -->
+    <div>
+        <div class="card" style="position:sticky;top:80px;">
             <div style="display:flex;flex-direction:column;gap:12px;">
-                <div style="display:flex;justify-content:space-between;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="text-secondary">Статус</span>
-                    <span class="badge" style="background:{{ order.status_color }}22;color:{{ order.status_color }};">
+                    <span class="badge" style="background:{{ order.status_color }}22;color:{{ order.status_color }};padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;">
                         {{ order.get_status_display }}
                     </span>
                 </div>
@@ -112,10 +131,10 @@
                     <span>{{ order.invoice_number|default:"—" }}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;">
-                    <span class="text-secondary">Дата создания</span>
+                    <span class="text-secondary">Дата</span>
                     <span>{{ order.created_at|date:"d.m.Y H:i" }}</span>
                 </div>
-                <hr style="border-color:var(--border);">
+                <hr style="border-color:var(--border);margin:4px 0;">
                 <div style="display:flex;justify-content:space-between;">
                     <span class="text-secondary">Сумма</span>
                     <span class="fw-bold">{{ order.total_price|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
@@ -127,21 +146,134 @@
                 {% if order.debt > 0 %}
                 <div style="display:flex;justify-content:space-between;">
                     <span class="text-secondary">Долг поставщику</span>
-                    <span style="color:#ef4444;font-weight:700;">
-                        {{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}
-                    </span>
+                    <span style="color:#ef4444;font-weight:700;">{{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}</span>
                 </div>
                 {% endif %}
                 {% if order.notes %}
-                <div style="background:var(--bg-tertiary);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;">
-                    {{ order.notes }}
-                </div>
+                <div style="background:var(--bg-tertiary);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;">{{ order.notes }}</div>
                 {% endif %}
+
+                <!-- Payment button -->
+                <button onclick="document.getElementById('pay-modal-pur').style.display='flex'"
+                        class="btn btn-success" style="width:100%;justify-content:center;margin-top:4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+                    Оплачено
+                </button>
             </div>
         </div>
-        <a href="{% url 'purchase_list' %}" class="btn btn-secondary" style="width:100%;margin-top:16px;">
-            ← К списку закупок
-        </a>
+        <a href="{% url 'purchase_list' %}" class="btn btn-secondary" style="width:100%;margin-top:16px;text-align:center;">← К списку закупок</a>
     </div>
 </div>
+
+<!-- Payment modal -->
+<div id="pay-modal-pur" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#1e1e2e;border-radius:16px;padding:28px;width:360px;max-width:95vw;border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;">Оплата поставщику</h3>
+            <button onclick="document.getElementById('pay-modal-pur').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;">×</button>
+        </div>
+        {% if order.debt > 0 %}
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;">
+            Долг: <strong style="color:#ef4444;">{{ order.debt|floatformat:0|intcomma }} {{ user.currency_symbol }}</strong>
+        </div>
+        {% endif %}
+        <form method="post" action="{% url 'purchase_pay' order.pk %}">
+            {% csrf_token %}
+            <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:6px;">Сумма ({{ user.currency_symbol }})</label>
+            <input type="number" name="amount" value="{{ order.debt|floatformat:0 }}" min="1" step="1" required
+                   style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;
+                          padding:10px 14px;font-size:16px;color:var(--text-primary);outline:none;font-family:inherit;margin-bottom:16px;"
+                   onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            <div style="display:flex;gap:10px;">
+                <button type="submit" class="btn btn-success" style="flex:1;justify-content:center;">Подтвердить</button>
+                <button type="button" onclick="document.getElementById('pay-modal-pur').style.display='none'" class="btn btn-secondary" style="flex:1;">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add item modal (shown when product selected from search) -->
+<div id="add-item-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#1e1e2e;border-radius:16px;padding:28px;width:360px;max-width:95vw;border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:16px;" id="add-modal-title">Добавить товар</h3>
+            <button onclick="document.getElementById('add-item-modal').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;">×</button>
+        </div>
+        <form method="post" action="{% url 'purchase_add_item' order.pk %}" id="add-item-form">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" id="add-modal-product-id">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div>
+                    <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Кол-во</label>
+                    <input type="number" name="qty" id="add-modal-qty" value="1" min="1" required
+                           style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:15px;color:var(--text-primary);outline:none;font-family:inherit;"
+                           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Цена закупки</label>
+                    <input type="number" name="price" id="add-modal-price" min="0" step="0.01"
+                           style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:15px;color:var(--text-primary);outline:none;font-family:inherit;"
+                           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Добавить</button>
+                <button type="button" onclick="document.getElementById('add-item-modal').style.display='none'" class="btn btn-secondary" style="flex:1;">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var searchInp = document.getElementById('pur-search');
+    var drop = document.getElementById('pur-drop');
+    if (!searchInp) return;
+
+    var timer;
+    searchInp.addEventListener('input', function() {
+        clearTimeout(timer);
+        var q = this.value.trim();
+        if (q.length < 2) { drop.style.display = 'none'; return; }
+        timer = setTimeout(function() {
+            fetch('/purchases/api/products/?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    drop.innerHTML = '';
+                    if (!data.results.length) {
+                        drop.innerHTML = '<div style="padding:12px 14px;color:var(--text-muted);font-size:13px;">Не найдено</div>';
+                    } else {
+                        data.results.forEach(function(p) {
+                            var d = document.createElement('div');
+                            d.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;';
+                            d.innerHTML = '<strong>' + (p.oem_number || '') + '</strong> ' + p.name +
+                                          ' <span style="color:var(--text-muted);float:right;">' + p.price_purchase + '</span>';
+                            d.onmouseenter = function() { this.style.background = 'rgba(255,90,31,0.1)'; };
+                            d.onmouseleave = function() { this.style.background = ''; };
+                            d.onclick = function() {
+                                drop.style.display = 'none';
+                                searchInp.value = '';
+                                document.getElementById('add-modal-product-id').value = p.id;
+                                document.getElementById('add-modal-title').textContent = p.name;
+                                document.getElementById('add-modal-price').value = p.price_purchase;
+                                document.getElementById('add-modal-qty').value = 1;
+                                document.getElementById('add-item-modal').style.display = 'flex';
+                                document.getElementById('add-modal-qty').focus();
+                            };
+                            drop.appendChild(d);
+                        });
+                    }
+                    drop.style.display = 'block';
+                });
+        }, 300);
+    });
+
+    searchInp.addEventListener('focus', function() {
+        if (this.value.trim().length >= 2) drop.style.display = 'block';
+    });
+})();
+</script>
 {% endblock %}
