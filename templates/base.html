@@ -757,19 +757,16 @@
                 .then(function(data) {
                     if (!data) return;
 
-                    // Появилось интернет-соединение, а сейчас работаем на SQLite
+                    // Появился интернет — автоматически запускаем синхронизацию
                     if (data.switch_available && !_dismissed) {
-                        var body = '';
-                        if (data.pending_changes > 0) {
-                            body = 'Офлайн-изменений: ' + data.pending_changes +
-                                   (data.pending_imports > 0 ? ', импортов: ' + data.pending_imports : '');
+                        _dismissed = true; // Не показывать повторно пока не сбросится
+                        if (typeof openSyncModal === 'function') {
+                            // Используем новый модал с прогрессом
+                            openSyncModal();
                         } else {
-                            body = 'Изменений для загрузки нет';
+                            // Fallback: старый механизм
+                            doSync();
                         }
-                        showSyncToast(
-                            'Появился интернет — переключиться на PostgreSQL?',
-                            body
-                        );
                     }
 
                     // Интернет пропал пока были на PostgreSQL — просто показываем инфо

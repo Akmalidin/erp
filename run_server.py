@@ -100,6 +100,26 @@ def _write_connectivity(status: str):
 
 _write_connectivity('postgres' if online else 'sqlite')
 
+def _auto_sync():
+    """Запускает синхронизацию в фоне при восстановлении соединения."""
+    try:
+        import sync_manager
+        from django.db import connections
+        if 'sqlite_cache' not in connections.databases:
+            # Нужно перезапустить Django с новым DB_NAME — невозможно без рестарта.
+            # Просто пишем флаг — пользователь увидит уведомление.
+            _write_connectivity('reconnected')
+            return
+        print('[AutoParts] Соединение восстановлено — запускаем синхронизацию...')
+        pushed = sync_manager.push_offline_data()
+        sync_manager.pull_server_data()
+        if pushed and (pushed[0] or pushed[1]):
+            print(f'[AutoParts] Автосинхронизация: {pushed[0]} клиентов, {pushed[1]} заказов')
+        _write_connectivity('postgres')
+    except Exception as e:
+        print(f'[AutoParts] Ошибка автосинхронизации: {e}')
+        _write_connectivity('postgres')
+
 def _monitor_connectivity():
     """Проверяет доступность PostgreSQL каждые 20 сек."""
     prev = online
@@ -107,7 +127,11 @@ def _monitor_connectivity():
         time.sleep(20)
         now = check_postgres()
         if now != prev:
-            _write_connectivity('postgres' if now else 'sqlite')
+            if now:
+                # Соединение появилось — синхронизируем в отдельном потоке
+                threading.Thread(target=_auto_sync, daemon=True).start()
+            else:
+                _write_connectivity('sqlite')
             prev = now
 
 threading.Thread(target=_monitor_connectivity, daemon=True).start()
