@@ -92,6 +92,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'autoparts.wsgi.application'
 
 # Database — PostgreSQL if DB_NAME env var is set, else SQLite (local dev / frozen exe)
+_sqlite_db = {
+    'ENGINE': 'django.db.backends.sqlite3',
+    'NAME': APP_DATA_DIR / 'db.sqlite3',
+}
 if os.environ.get('DB_NAME'):
     DATABASES = {
         'default': {
@@ -101,15 +105,17 @@ if os.environ.get('DB_NAME'):
             'PASSWORD': os.environ.get('DB_PASSWORD', ''),
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '5432'),
-        }
+        },
+        # SQLite always available as offline cache / sync target
+        'sqlite_cache': _sqlite_db,
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': APP_DATA_DIR / 'db.sqlite3',
-        }
+        'default': _sqlite_db,
     }
+
+# Router: sqlite_cache is managed manually (migrations run explicitly)
+DATABASE_ROUTERS = ['autoparts.dbrouter.SyncRouter']
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

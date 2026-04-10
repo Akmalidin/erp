@@ -63,6 +63,7 @@ class Order(models.Model):
         verbose_name='Смена',
         related_name='orders'
     )
+    sync_id = models.UUIDField('Sync ID', null=True, blank=True, unique=True, db_index=True)
     created_at = models.DateTimeField('Создан', auto_now_add=True)
     updated_at = models.DateTimeField('Обновлен', auto_now=True)
 

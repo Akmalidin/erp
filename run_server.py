@@ -73,6 +73,21 @@ try:
 except Exception as e:
     print(f'[AutoParts] Ошибка миграций: {e}')
 
+# ── Синхронизация данных ──────────────────────────────────────────────────────
+if online:
+    try:
+        # Миграции на SQLite cache тоже нужны
+        call_command('migrate', '--database', 'sqlite_cache', '--run-syncdb', verbosity=0)
+        import sync_manager
+        print('[AutoParts] Синхронизация данных...')
+        pushed = sync_manager.push_offline_data()
+        if pushed and (pushed[0] or pushed[1]):
+            print(f'[AutoParts] Загружено на сервер: {pushed[0]} клиентов, {pushed[1]} заказов')
+        sync_manager.pull_server_data()
+        print('[AutoParts] Данные синхронизированы с сервером')
+    except Exception as e:
+        print(f'[AutoParts] Ошибка синхронизации: {e}')
+
 # ── Фоновый мониторинг подключения ───────────────────────────────────────────
 _connectivity_file = APP_DATA_DIR / '.connectivity'
 
