@@ -28,8 +28,12 @@ APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 os.environ['APP_BASE_DIR'] = str(APP_BASE_DIR)
 os.environ['APP_DATA_DIR'] = str(APP_DATA_DIR)
 
-# ── Проверка интернета ───────────────────────────────────────────────────────
-def check_internet(host='8.8.8.8', port=53, timeout=3):
+# ── Проверка доступности PostgreSQL сервера ──────────────────────────────────
+PG_HOST = '46.149.68.65'
+PG_PORT = 5432
+
+def check_postgres(host=PG_HOST, port=PG_PORT, timeout=4):
+    """Проверяем доступность именно PostgreSQL сервера, а не просто интернет."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(timeout)
@@ -40,7 +44,7 @@ def check_internet(host='8.8.8.8', port=53, timeout=3):
 
 
 # ── Настройка БД ─────────────────────────────────────────────────────────────
-online = check_internet()
+online = check_postgres()
 if online:
     os.environ['DB_NAME']     = 'erp_db'
     os.environ['DB_USER']     = 'erp_user'
@@ -51,6 +55,8 @@ if online:
     print('[AutoParts] Режим: PostgreSQL (онлайн)')
 else:
     os.environ['DB_MODE'] = 'sqlite'
+    # Явно блокируем PostgreSQL — settings.py читает .env и может подтянуть DB_NAME
+    os.environ['DB_NAME'] = ''
     print('[AutoParts] Режим: SQLite (офлайн)')
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'autoparts.settings')
@@ -80,11 +86,11 @@ def _write_connectivity(status: str):
 _write_connectivity('postgres' if online else 'sqlite')
 
 def _monitor_connectivity():
-    """Проверяет интернет каждые 20 сек и пишет статус в файл."""
+    """Проверяет доступность PostgreSQL каждые 20 сек."""
     prev = online
     while True:
         time.sleep(20)
-        now = check_internet()
+        now = check_postgres()
         if now != prev:
             _write_connectivity('postgres' if now else 'sqlite')
             prev = now
